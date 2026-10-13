@@ -25,6 +25,17 @@ pub struct Sel {
     pub origin: Rect,
 }
 
+/// A drag on the selection itself (not a new Select drag).
+#[derive(Debug, Clone)]
+pub enum SelGesture {
+    /// Moving the body (selection.move_copy). `started` flips at the first
+    /// move event, which records the undo step and lifts a fresh selection.
+    Move { last: (i32, i32), ctrl: bool, started: bool },
+    /// Dragging a handle (selection.resize). `base` is the content as it was
+    /// when the drag began, captured at the first move event.
+    Resize { handle: Handle, start: Rect, base: Option<crate::features::selection_image_ops_scope::Raster> },
+}
+
 /// An in-progress Select / Free-Form Select drag.
 #[derive(Debug, Clone)]
 pub struct SelDrag {
@@ -112,18 +123,26 @@ impl State {
         sel.floating = Some(px);
     }
 
+    /// Whether a floating pixel of colour `c` is drawn: always in opaque
+    /// mode, but background-coloured pixels are skipped in transparent mode
+    /// (selection.transparency). Text frames use the same rule.
+    pub fn draws_floating(&self, c: Rgb) -> bool {
+        self.options.opaque || c != self.bg
+    }
+
     /// Write the floating pixels of the masked area into the image where they
     /// lie (clipped to the canvas). Leaves the selection itself untouched;
     /// "stamp a copy" (Ctrl-drag) calls this and keeps floating.
     pub fn stamp_selection(&mut self) {
         let Some(sel) = self.sel.as_ref() else { return };
         let Some(px) = sel.floating.as_ref() else { return };
+        let (opaque, bg) = (self.options.opaque, self.bg);
         let b = sel.bounds;
         let w = b.width() as usize;
         for y in b.y0..=b.y1 {
             for x in b.x0..=b.x1 {
                 let i = (y - b.y0) as usize * w + (x - b.x0) as usize;
-                if sel.mask[i] {
+                if sel.mask[i] && (opaque || px[i] != bg) {
                     self.doc.put(x, y, px[i]);
                 }
             }
@@ -165,6 +184,7 @@ impl State {
     pub fn reset_selection(&mut self) {
         self.sel = None;
         self.sel_drag = None;
+        self.sel_gesture = None;
     }
 }
 
@@ -187,7 +207,7 @@ pub fn composite_layer(st: &State, img: &mut Image) {
     for y in b.y0..=b.y1 {
         for x in b.x0..=b.x1 {
             let i = (y - b.y0) as usize * w + (x - b.x0) as usize;
-            if sel.mask[i] && in_bounds(x, y, img.width, img.height) {
+            if sel.mask[i] && st.draws_floating(px[i]) && in_bounds(x, y, img.width, img.height) {
                 set(img, x as i64, y as i64, px[i]);
             }
         }

@@ -128,7 +128,10 @@ pub fn recent_labels(st: &State) -> Vec<String> {
 
 /// State of a check item. Features that own a toggle read their own state
 /// here; the defaults are the start-up state.
-fn check_state(_st: &State, path: &str) -> bool {
+fn check_state(st: &State, path: &str) -> bool {
+    if path == "Image > Draw Opaque" {
+        return st.options.opaque;
+    }
     matches!(path, "View > Tool Box" | "View > Color Box" | "View > Status Bar")
 }
 

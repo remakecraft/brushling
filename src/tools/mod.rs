@@ -144,6 +144,7 @@ impl State {
             }
             return Ok(());
         }
+        self.ptr_kind = Some(kind);
         let hooks = registry().pointer_hooks();
         for hook in hooks {
             if hook(self, &ev)? {

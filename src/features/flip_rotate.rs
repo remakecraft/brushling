@@ -2,6 +2,7 @@
 //! that mirrors the image or rotates it clockwise by 90, 180 or 270 degrees.
 //! See `src/README.md`.
 
+use super::selection_image_ops_scope::with_target_pixels;
 use crate::dialogs::{store_field, DialogAction, OpenDialog, Outcome};
 use crate::registry::Registry;
 use crate::state::State;
@@ -60,7 +61,7 @@ fn handle(st: &mut State, od: &mut OpenDialog, action: DialogAction<'_>) -> HRes
                     _ => Transform::Rotate90,
                 },
             };
-            apply(st, transform);
+            apply(st, transform)?;
             Ok(Outcome::Close)
         }
         DialogAction::Click(_) => Ok(Outcome::Close),
@@ -87,21 +88,15 @@ fn source(t: Transform, x: u32, y: u32, w: u32, h: u32) -> (u32, u32) {
     }
 }
 
-fn apply(st: &mut State, t: Transform) {
-    st.doc.push_undo();
-    let (w, h) = (st.doc.width, st.doc.height);
-    let (nw, nh) = match t {
-        Transform::Rotate90 | Transform::Rotate270 => (h, w),
-        _ => (w, h),
-    };
-    let mut out = Vec::with_capacity(st.doc.pixels.len());
-    for y in 0..nh {
-        for x in 0..nw {
-            let (sx, sy) = source(t, x, y, w, h);
-            out.push(st.doc.pixels[sy as usize * w as usize + sx as usize]);
-        }
-    }
-    st.doc.pixels = out;
-    st.doc.width = nw;
-    st.doc.height = nh;
+/// Transform the selection's content (it stays floating, canvas size
+/// unchanged) or, without a selection, the whole image.
+fn apply(st: &mut State, t: Transform) -> HResult<()> {
+    with_target_pixels(st, |r, bg| {
+        let (w, h) = (r.width, r.height);
+        let (nw, nh) = match t {
+            Transform::Rotate90 | Transform::Rotate270 => (h, w),
+            _ => (w, h),
+        };
+        Ok(r.remap(nw, nh, bg, |x, y| Some(source(t, x, y, w, h))))
+    })
 }

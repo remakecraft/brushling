@@ -2,6 +2,7 @@
 //! its RGB complement, snapped to the palette in indexed / black-and-white
 //! images. See `src/README.md`.
 
+use super::selection_image_ops_scope::map_target_pixels;
 use crate::registry::Registry;
 use crate::state::State;
 use crate::types::*;
@@ -26,18 +27,18 @@ fn snap(c: Rgb, palette: &[Rgb]) -> Rgb {
 }
 
 fn invert(st: &mut State) -> HResult<()> {
-    st.doc.push_undo();
     let palette: Option<Vec<Rgb>> = match (st.doc.color_mode, &st.doc.palette) {
         (ColorMode::BlackAndWhite, _) => Some(vec![Rgb::K, Rgb::W]),
         (_, Some(p)) if !p.is_empty() => Some(p.clone()),
         _ => None,
     };
-    for px in st.doc.pixels.iter_mut() {
-        let inv = complement(*px);
-        *px = match &palette {
+    // Acts on the selection's masked pixels when one exists, else the image.
+    map_target_pixels(st, |px| {
+        let inv = complement(px);
+        match &palette {
             Some(p) => snap(inv, p),
             None => inv,
-        };
-    }
+        }
+    });
     Ok(())
 }
