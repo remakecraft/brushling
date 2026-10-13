@@ -188,7 +188,9 @@ impl App {
     }
 
     pub fn set_text_font(&mut self, font: &str) -> HResult<()> {
-        set_font(&mut self.st, font)
+        set_font(&mut self.st, font)?;
+        return_focus_to_frame(&mut self.st);
+        Ok(())
     }
 
     /// Choose a size of the list, in points.
@@ -197,15 +199,21 @@ impl App {
     }
 
     pub fn set_text_bold(&mut self, on: bool) -> HResult<()> {
-        set_bold(&mut self.st, on)
+        set_bold(&mut self.st, on)?;
+        return_focus_to_frame(&mut self.st);
+        Ok(())
     }
 
     pub fn set_text_italic(&mut self, on: bool) -> HResult<()> {
-        set_italic(&mut self.st, on)
+        set_italic(&mut self.st, on)?;
+        return_focus_to_frame(&mut self.st);
+        Ok(())
     }
 
     pub fn set_text_underline(&mut self, on: bool) -> HResult<()> {
-        set_underline(&mut self.st, on)
+        set_underline(&mut self.st, on)?;
+        return_focus_to_frame(&mut self.st);
+        Ok(())
     }
 
     /// The text frame's context menu while open (right-click on the frame).
@@ -272,6 +280,26 @@ mod tests {
         a.set_text_size(12).unwrap();
         a.key(Key::Escape, Mods::NONE).unwrap();
         assert!(a.panel(Panel::TextToolbar).unwrap().visible);
+        a.key(Key::Escape, Mods::NONE).unwrap();
+        assert!(!a.panel(Panel::TextToolbar).unwrap().visible);
+    }
+
+    #[test]
+    fn typing_after_a_size_change_returns_focus_so_esc_commits() {
+        let mut a = app("sizefocus2");
+        make_frame(&mut a);
+        a.set_text_size(12).unwrap();
+        a.key(Key::Char('A'), Mods::NONE).unwrap();
+        a.key(Key::Escape, Mods::NONE).unwrap();
+        assert!(!a.panel(Panel::TextToolbar).unwrap().visible);
+    }
+
+    #[test]
+    fn style_change_after_a_size_change_returns_focus_so_esc_commits() {
+        let mut a = app("sizefocus3");
+        make_frame(&mut a);
+        a.set_text_size(12).unwrap();
+        a.set_text_bold(true).unwrap();
         a.key(Key::Escape, Mods::NONE).unwrap();
         assert!(!a.panel(Panel::TextToolbar).unwrap().visible);
     }

@@ -204,6 +204,9 @@ pub fn on_zoom_changed(st: &mut State) -> HResult<()> {
 /// Show or hide the text toolbar (View > Text Toolbar and the context menu).
 pub fn set_toolbar_visible(st: &mut State, visible: bool) {
     st.text_toolbar = visible;
+    if !visible {
+        toolbar::return_focus_to_frame(st);
+    }
 }
 
 // ----- layout
@@ -433,9 +436,11 @@ impl ToolHandler for TextTool {
         if ev.button != Some(Button::Left) {
             return Ok(());
         }
-        // Any left press dismisses the context menu.
+        // Any left press dismisses the context menu and takes focus from the
+        // toolbar's size list.
         if let Some(s) = st.text.as_mut() {
             s.menu_open = false;
+            s.size_list_focus = false;
         }
         if let (Some(sess), Pos::SelectionHandle(h)) = (st.text.as_ref(), ev.pos) {
             let _ = sess;
@@ -515,6 +520,10 @@ impl ToolHandler for TextTool {
             return Ok(false);
         }
         let shift = mods.shift;
+        // Typing in the frame means focus is back on it (tool.text B6, B11).
+        if key != Key::Escape {
+            toolbar::return_focus_to_frame(st);
+        }
         match key {
             Key::Escape if toolbar::menu_is_open(st) => toolbar::close_context_menu(st),
             Key::Escape if toolbar::size_list_has_focus(st) => toolbar::return_focus_to_frame(st),
