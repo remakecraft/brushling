@@ -12,6 +12,7 @@ pub mod line;
 pub mod mouse_colors;
 pub mod pencil;
 pub mod pick_color;
+pub mod undo_repeat;
 
 /// Register every feature with the registry (called once, on first use).
 pub fn register_all(r: &mut Registry) {
@@ -24,4 +25,5 @@ pub fn register_all(r: &mut Registry) {
     mouse_colors::register(r);
     pencil::register(r);
     pick_color::register(r);
+    undo_repeat::register(r);
 }
