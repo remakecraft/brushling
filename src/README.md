@@ -47,6 +47,16 @@ validation message box returns to the dialog beneath after `OK`.
 `st.message_box(title, text, &["Yes","No","Cancel"], Some(continuation))` runs
 `continuation(st, button)` after the box closed.
 
+## Bitmap codec (format.bmp_*)
+- Decode: `features::format_bmp_read::decode_bmp(&[u8]) -> Result<Decoded, DecodeError>`
+  (registered as a decoder already, so `State::open_path` / `formats::decode`
+  use it). `NOT_ENOUGH_MEMORY` is the message for unknown compression.
+- Encode: `features::format_bmp_write::encode_bmp(pixels, w, h, depth, palette)
+  -> HResult<Vec<u8>>` (depth 1/4/8/24, pixels map to exact-or-nearest palette
+  entry, ties to lower index); `encode_bmp_indexed(indices, w, h, depth,
+  palette)` when indices are already known; `keeps_source_palette(source_depth,
+  &palette, depth)` is the same-depth-keeps-palette rule for file.save.
+
 ## Other hooks
 - `r.pointer_hook(f)`: sees every pointer event before the tool; return `true`
   to consume (resize handles, selection handles).
