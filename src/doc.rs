@@ -6,6 +6,8 @@ use crate::raster::in_bounds;
 use crate::types::*;
 use std::path::PathBuf;
 
+/// Number of most recent steps the undo history keeps.
+pub const UNDO_DEPTH: usize = 3;
 pub const MAX_DIM: u32 = 9999;
 /// Size of the first new image when no size has ever been confirmed.
 pub const DEFAULT_SIZE: (u32, u32) = (512, 384);
@@ -44,6 +46,8 @@ pub struct Document {
     /// Undo history, oldest first. Features push through
     /// [`Document::push_undo`] before changing pixels.
     pub undo: Vec<Snapshot>,
+    /// Steps undone and still repeatable, most recently undone last.
+    pub redo: Vec<Snapshot>,
 }
 
 impl Document {
@@ -60,6 +64,7 @@ impl Document {
             color_mode: ColorMode::Colors,
             dirty: false,
             undo: Vec::new(),
+            redo: Vec::new(),
         })
     }
 
@@ -79,6 +84,7 @@ impl Document {
             color_mode: ColorMode::Colors,
             dirty: false,
             undo: Vec::new(),
+            redo: Vec::new(),
         })
     }
 
@@ -133,7 +139,23 @@ impl Document {
     pub fn push_undo(&mut self) {
         let s = self.snapshot();
         self.undo.push(s);
+        if self.undo.len() > UNDO_DEPTH {
+            self.undo.remove(0);
+        }
+        self.redo.clear();
         self.dirty = true;
+    }
+
+    /// Replace the picture state with `s`, returning the state it replaced.
+    pub fn restore(&mut self, s: Snapshot) -> Snapshot {
+        let prev = self.snapshot();
+        self.width = s.width;
+        self.height = s.height;
+        self.pixels = s.pixels;
+        self.palette = s.palette;
+        self.color_mode = s.color_mode;
+        self.dirty = true;
+        prev
     }
 }
 
