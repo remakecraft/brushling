@@ -11,7 +11,7 @@ use crate::types::{Button, HResult, HarnessError, Rgb};
 pub const SWATCH_COUNT: usize = 28;
 
 /// Default palette: top row (swatches 1-14) then bottom row (15-28).
-const DEFAULT_SWATCHES: [Rgb; SWATCH_COUNT] = [
+pub const DEFAULT_SWATCHES: [Rgb; SWATCH_COUNT] = [
     Rgb::new(0, 0, 0),
     Rgb::new(128, 128, 128),
     Rgb::new(128, 0, 0),
@@ -45,20 +45,27 @@ const DEFAULT_SWATCHES: [Rgb; SWATCH_COUNT] = [
 pub fn register(_r: &mut Registry) {}
 
 /// The current swatch colours.
-pub fn swatches(_st: &State) -> Vec<Rgb> {
-    DEFAULT_SWATCHES.to_vec()
+pub fn swatches(st: &State) -> Vec<Rgb> {
+    st.swatches.to_vec()
 }
 
 /// Click swatch `n` (1-based): left sets the foreground, right the
-/// background. No pixels change and no undo step is made.
-pub fn click_swatch(st: &mut State, n: u32, button: Button, _double: bool) -> HResult<()> {
-    let colour = n
+/// background. No pixels change and no undo step is made. A double-click
+/// also opens Edit Colors for that swatch.
+pub fn click_swatch(st: &mut State, n: u32, button: Button, double: bool) -> HResult<()> {
+    let index = n
         .checked_sub(1)
-        .and_then(|i| swatches(st).get(i as usize).copied())
+        .map(|i| i as usize)
+        .filter(|i| *i < SWATCH_COUNT)
         .ok_or_else(|| HarnessError::Invalid(format!("no swatch {n}")))?;
+    let colour = st.swatches[index];
+    st.last_swatch = index;
     match button {
         Button::Left => st.fg = colour,
         Button::Right => st.bg = colour,
+    }
+    if double {
+        super::colors_edit_colors::open(st);
     }
     Ok(())
 }
