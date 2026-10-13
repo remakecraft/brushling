@@ -29,6 +29,9 @@ pub struct Held {
     pub start: Pos,
     pub start_image: Option<(i32, i32)>,
     pub mods: Mods,
+    /// The other button went down mid-stroke (tools.mouse_colors): the rest
+    /// of the gesture, up to the release, is ignored by the tools.
+    pub cancelled: bool,
 }
 
 /// The previous button press, for double-click detection.
@@ -73,6 +76,17 @@ pub struct State {
     // ----- tool.pencil (per-gesture data)
     pub pencil_last: Option<(i32, i32)>,
     pub pencil_base: Option<Vec<Rgb>>,
+    /// The stroke has started (set at a press on the canvas, so a pointer
+    /// that left and re-enters the canvas continues it).
+    pub pencil_active: bool,
+    /// The stroke's undo step has been recorded (lazily, at the first pixel
+    /// that lands on the canvas).
+    pub pencil_pushed: bool,
+    // ----- tools.mouse_colors (stroke cancel)
+    pub stroke_base: Option<crate::features::mouse_colors::StrokeBase>,
+    // ----- tool.pick_color
+    /// The tool that was active before the current one.
+    pub prev_tool: Tool,
 }
 
 impl State {
@@ -101,6 +115,10 @@ impl State {
             menu_open: None,
             pencil_last: None,
             pencil_base: None,
+            pencil_active: false,
+            pencil_pushed: false,
+            stroke_base: None,
+            prev_tool: Tool::Pencil,
         })
     }
 
@@ -112,6 +130,11 @@ impl State {
         self.held = None;
         self.last_press = None;
         self.pointer_image = None;
+        self.pencil_last = None;
+        self.pencil_base = None;
+        self.pencil_active = false;
+        self.pencil_pushed = false;
+        self.stroke_base = None;
     }
 
     /// The size File > New creates: the confirmed Attributes size, else the
