@@ -13,6 +13,9 @@ pub mod menu_bar;
 pub mod mouse_colors;
 pub mod pencil;
 pub mod pick_color;
+pub mod tool_brush;
+pub mod tool_line_width;
+pub mod tool_shapes;
 pub mod undo_repeat;
 
 /// Register every feature with the registry (called once, on first use).
@@ -26,5 +29,8 @@ pub fn register_all(r: &mut Registry) {
     mouse_colors::register(r);
     pencil::register(r);
     pick_color::register(r);
+    tool_brush::register(r);
+    tool_line_width::register(r);
+    tool_shapes::register(r);
     undo_repeat::register(r);
 }

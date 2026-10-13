@@ -4,6 +4,9 @@
 
 use crate::types::Rect;
 
+/// Thick strokes, ellipses and rounded rectangles (shapes, curve, polygon).
+pub(crate) mod shapes;
+
 /// The inclusive rectangle spanned by two corner points, corners in any order.
 pub fn rect_from_corners(a: (i32, i32), b: (i32, i32)) -> Rect {
     Rect::new(a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1))
