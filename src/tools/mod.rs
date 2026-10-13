@@ -182,6 +182,9 @@ impl State {
                 _ => Ok(()),
             };
         }
+        if self.exit_code.is_none() && self.menu_key(key, mods)? {
+            return Ok(());
+        }
         if let Some(h) = registry().tool_handler(self.tool) {
             if h.key(self, key, mods)? {
                 return Ok(());

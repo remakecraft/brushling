@@ -9,6 +9,7 @@ pub mod fill;
 pub mod flip_rotate;
 pub mod invert;
 pub mod line;
+pub mod menu_bar;
 pub mod mouse_colors;
 pub mod pencil;
 pub mod pick_color;
