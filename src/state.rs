@@ -99,6 +99,10 @@ pub struct State {
     pub pending_paste: Option<Image>,
     /// A Copy To waiting for the colour-loss warning: target, depth, image.
     pub pending_copy_to: Option<(std::path::PathBuf, u32, Image)>,
+    // ----- tool.curve / tool.polygon / tool.airbrush (per-gesture data)
+    pub curve: crate::features::tool_curve::CurveState,
+    pub poly: crate::features::tool_polygon::PolyState,
+    pub airbrush: crate::features::tool_airbrush::AirbrushState,
 }
 
 impl State {
@@ -137,6 +141,9 @@ impl State {
             clipboard: ClipboardContent::Empty,
             pending_paste: None,
             pending_copy_to: None,
+            curve: Default::default(),
+            poly: Default::default(),
+            airbrush: Default::default(),
         })
     }
 
@@ -154,6 +161,9 @@ impl State {
         self.pencil_active = false;
         self.pencil_pushed = false;
         self.stroke_base = None;
+        self.curve = Default::default();
+        self.poly = Default::default();
+        self.airbrush = Default::default();
     }
 
     /// The size File > New creates: the confirmed Attributes size, else the

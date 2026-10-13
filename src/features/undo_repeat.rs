@@ -22,7 +22,15 @@ fn can_repeat(st: &State) -> bool {
     !st.doc.redo.is_empty()
 }
 
+/// Undo and Repeat throw away an unfinished Curve or Polygon (it is never
+/// restored) before stepping through the history.
+fn discard_unfinished(st: &mut State) {
+    st.curve = Default::default();
+    st.poly = Default::default();
+}
+
 fn undo(st: &mut State) -> HResult<()> {
+    discard_unfinished(st);
     if let Some(snap) = st.doc.undo.pop() {
         let current = st.doc.restore(snap);
         st.doc.redo.push(current);
@@ -31,6 +39,7 @@ fn undo(st: &mut State) -> HResult<()> {
 }
 
 fn repeat(st: &mut State) -> HResult<()> {
+    discard_unfinished(st);
     if let Some(snap) = st.doc.redo.pop() {
         let current = st.doc.restore(snap);
         st.doc.undo.push(current);
