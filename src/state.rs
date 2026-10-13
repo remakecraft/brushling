@@ -92,6 +92,13 @@ pub struct State {
     pub prev_tool: Tool,
     /// file.save: a save waiting for the colour-loss warning to be answered.
     pub pending_save: Option<(std::path::PathBuf, u32)>,
+    // ----- edit.clipboard / edit.copy_to_paste_from
+    /// The in-process model of the system clipboard.
+    pub clipboard: ClipboardContent,
+    /// A paste waiting for the "enlarge the canvas?" question to be answered.
+    pub pending_paste: Option<Image>,
+    /// A Copy To waiting for the colour-loss warning: target, depth, image.
+    pub pending_copy_to: Option<(std::path::PathBuf, u32, Image)>,
 }
 
 impl State {
@@ -127,6 +134,9 @@ impl State {
             stroke_base: None,
             prev_tool: Tool::Pencil,
             pending_save: None,
+            clipboard: ClipboardContent::Empty,
+            pending_paste: None,
+            pending_copy_to: None,
         })
     }
 

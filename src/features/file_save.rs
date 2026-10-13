@@ -26,11 +26,11 @@ pub fn register(r: &mut Registry) {
     r.shortcut(Key::Char('s'), Mods::CTRL, "File > Save");
 }
 
-fn type_label(depth: u32) -> &'static str {
+pub(crate) fn type_label(depth: u32) -> &'static str {
     TYPES.iter().find(|(_, d)| *d == depth).map_or(TYPES[3].0, |(l, _)| l)
 }
 
-fn type_depth(label: &str) -> Option<u32> {
+pub(crate) fn type_depth(label: &str) -> Option<u32> {
     TYPES.iter().find(|(l, _)| *l == label).map(|(_, d)| *d)
 }
 
@@ -67,15 +67,15 @@ pub(crate) fn show_save_as(st: &mut State) -> HResult<()> {
 
 /// What a save at some depth writes: the palette and indices for indexed
 /// depths, plus whether the image holds colours the palette cannot represent.
-struct Plan {
-    palette: Vec<Rgb>,
-    indices: Vec<u8>,
-    lossy: bool,
+pub(crate) struct Plan {
+    pub palette: Vec<Rgb>,
+    pub indices: Vec<u8>,
+    pub lossy: bool,
 }
 
 /// `None` for 24-bit; otherwise the document's own palette when the depth
 /// matches its source depth, else the fixed palette of the depth.
-fn plan(doc: &Document, depth: u32) -> Option<Plan> {
+pub(crate) fn plan(doc: &Document, depth: u32) -> Option<Plan> {
     if depth == 24 {
         return None;
     }
@@ -145,7 +145,7 @@ pub(crate) fn save_to(st: &mut State, path: &Path, depth: u32) -> HResult<bool> 
 
 /// Write to a sibling temporary file and rename it over the target, so a
 /// failure leaves the old file intact and no stray file behind.
-fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), String> {
+pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), String> {
     if let Ok(meta) = std::fs::metadata(path) {
         if meta.is_dir() {
             return Err("the target is a folder".into());
@@ -166,7 +166,7 @@ fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), String> {
 
 /// Final path for a typed name: '.bmp' appended unless already there
 /// (case-insensitive); a bare name lands next to the current file, if any.
-fn resolve(st: &State, typed: &str) -> PathBuf {
+pub(crate) fn resolve(st: &State, typed: &str) -> PathBuf {
     let typed = typed.trim().trim_matches('"').trim();
     let mut name = typed.to_owned();
     if !name.to_lowercase().ends_with(".bmp") {
