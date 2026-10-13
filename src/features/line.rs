@@ -1,7 +1,8 @@
 //! Feature tool.line: straight line between press and release in the current
-//! width. The drag is a live preview redrawn over the pre-gesture pixels (the
-//! undo snapshot pushed at the press); release commits the same drawing, so
-//! the whole gesture is one undo step. Shift snaps to 0/45/90 degrees.
+//! width. The drag is a live preview drawn in the composite layer only; the
+//! release commits it to the document as one undo step. Shift snaps to 0/45/90 degrees.
+
+use std::cell::Cell;
 
 use crate::raster::line_points;
 use crate::registry::Registry;
@@ -14,6 +15,7 @@ static LINE: Line = Line;
 
 pub fn register(r: &mut Registry) {
     r.tool(Tool::Line, &LINE);
+    r.composite_layer(preview);
 }
 
 /// End point of a Shift-constrained line from `start` towards `end`.
@@ -32,51 +34,76 @@ fn snap(start: (i32, i32), end: (i32, i32)) -> (i32, i32) {
     }
 }
 
-/// Stamp a `w` x `w` square for every path point, centred as evenly as the
-/// width allows.
-fn paint(st: &mut State, a: (i32, i32), b: (i32, i32), c: Rgb, w: i32) {
+/// Every pixel of the line from `a` to `b`, each path point widened to a
+/// `w` x `w` square centred as evenly as the width allows.
+fn stamps(a: (i32, i32), b: (i32, i32), w: i32) -> impl Iterator<Item = (i32, i32)> {
     let lo = -((w - 1) / 2);
-    for (x, y) in line_points(a, b) {
-        for oy in lo..lo + w {
-            for ox in lo..lo + w {
-                st.doc.put(x + ox, y + oy, c);
-            }
+    line_points(a, b).into_iter().flat_map(move |(x, y)| {
+        (lo..lo + w).flat_map(move |oy| (lo..lo + w).map(move |ox| (x + ox, y + oy)))
+    })
+}
+
+thread_local! {
+    /// Whether Shift was down at the latest pointer event of the gesture, so
+    /// the preview layer (which only sees `&State`) snaps like the commit.
+    static SHIFT: Cell<bool> = const { Cell::new(false) };
+}
+
+fn colour(st: &State, button: Option<Button>) -> Rgb {
+    if button == Some(Button::Right) {
+        st.bg
+    } else {
+        st.fg
+    }
+}
+
+fn end_point(start: (i32, i32), end: (i32, i32), shift: bool) -> (i32, i32) {
+    if shift {
+        snap(start, end)
+    } else {
+        end
+    }
+}
+
+/// Live preview: the line is drawn into the composite only, never the
+/// document, until the release commits it.
+fn preview(st: &State, img: &mut Image) {
+    if st.tool != Tool::Line {
+        return;
+    }
+    let (Some(h), Some(cur)) = (st.held, st.pointer_image) else { return };
+    let Some(start) = h.start_image else { return };
+    let end = end_point(start, cur, SHIFT.with(Cell::get));
+    let c = colour(st, Some(h.button));
+    let w = st.options.line_width as i32;
+    for (x, y) in stamps(start, end, w) {
+        if x >= 0 && y >= 0 && (x as u32) < img.width && (y as u32) < img.height {
+            img.pixels[y as usize * img.width as usize + x as usize] = c;
         }
     }
 }
 
-/// Redraw the line over the pixels saved at the press.
-fn redraw(st: &mut State, ev: &PointerEvent) {
-    let Some(start) = st.held.and_then(|h| h.start_image) else { return };
-    let Some(end) = ev.image else { return };
-    let Some(base) = st.doc.undo.last() else { return };
-    if base.width != st.doc.width || base.height != st.doc.height {
-        return;
-    }
-    st.doc.pixels = base.pixels.clone();
-    let end = if ev.mods.shift { snap(start, end) } else { end };
-    let c = if ev.button == Some(Button::Right) { st.bg } else { st.fg };
-    let w = st.options.line_width as i32;
-    paint(st, start, end, c, w);
-}
-
 impl ToolHandler for Line {
-    fn press(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
-        let Some(p) = ev.image else { return Ok(()) };
-        st.doc.push_undo();
-        let c = if ev.button == Some(Button::Right) { st.bg } else { st.fg };
-        let w = st.options.line_width as i32;
-        paint(st, p, p, c, w);
+    fn press(&self, _st: &mut State, ev: &PointerEvent) -> HResult<()> {
+        SHIFT.with(|s| s.set(ev.mods.shift));
         Ok(())
     }
 
-    fn drag(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
-        redraw(st, ev);
+    fn drag(&self, _st: &mut State, ev: &PointerEvent) -> HResult<()> {
+        SHIFT.with(|s| s.set(ev.mods.shift));
         Ok(())
     }
 
     fn release(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
-        redraw(st, ev);
+        let Some(start) = st.held.and_then(|h| h.start_image) else { return Ok(()) };
+        let Some(cur) = ev.image.or(st.pointer_image) else { return Ok(()) };
+        let end = end_point(start, cur, ev.mods.shift);
+        let c = colour(st, ev.button);
+        let w = st.options.line_width as i32;
+        st.doc.push_undo();
+        for (x, y) in stamps(start, end, w) {
+            st.doc.put(x, y, c);
+        }
         Ok(())
     }
 }
