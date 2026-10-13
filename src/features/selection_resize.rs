@@ -59,7 +59,7 @@ fn drag(st: &mut State, ev: &PointerEvent) -> bool {
         None => {
             // First move: the undo step and the lift happen now, and the
             // content at this moment is what every later move resamples.
-            st.doc.push_undo();
+            st.push_undo_sel();
             st.lift_selection(true);
             let Some(sel) = st.sel.as_ref() else { return true };
             let Some(pixels) = sel.floating.clone() else { return true };

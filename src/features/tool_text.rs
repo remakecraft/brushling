@@ -175,12 +175,12 @@ pub fn commit_frame(st: &mut State) {
     if let Some(r) = fill {
         for y in r.y0..=r.y1 {
             for x in r.x0..=r.x1 {
-                st.doc.put(x, y, bg);
+                st.doc.paint(x, y, bg);
             }
         }
     }
     for (x, y) in ink {
-        st.doc.put(x, y, fg);
+        st.doc.paint(x, y, fg);
     }
 }
 

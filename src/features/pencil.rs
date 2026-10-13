@@ -42,7 +42,7 @@ fn paint_line(st: &mut State, a: (i32, i32), b: (i32, i32), c: Rgb) {
     let pts = path_points(a, b);
     ensure_undo(st, &pts);
     for (x, y) in pts {
-        st.doc.put(x, y, c);
+        st.doc.paint(x, y, c);
     }
 }
 

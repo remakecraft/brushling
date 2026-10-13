@@ -44,7 +44,7 @@ fn drag(st: &mut State, ev: &PointerEvent) -> bool {
     let Some(p) = ev.image else { return true };
     if !started {
         // One undo step per drag, recorded before the source is touched.
-        st.doc.push_undo();
+        st.push_undo_sel();
         let fresh = st.sel.as_ref().is_some_and(|s| !s.is_floating());
         if fresh {
             st.lift_selection(!ctrl);

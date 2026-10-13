@@ -71,7 +71,7 @@ impl ToolHandler for Line {
         let w = st.options.line_width as i32;
         st.doc.push_undo();
         for (x, y) in stamps(start, end, w) {
-            st.doc.put(x, y, c);
+            st.doc.paint(x, y, c);
         }
         Ok(())
     }

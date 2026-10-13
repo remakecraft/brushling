@@ -108,7 +108,7 @@ fn commit(st: &mut State) {
     }
     st.doc.push_undo();
     for (x, y) in px {
-        st.doc.put(x, y, c);
+        st.doc.paint(x, y, c);
     }
 }
 

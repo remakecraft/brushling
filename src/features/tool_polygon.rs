@@ -133,7 +133,7 @@ fn close(st: &mut State) {
     let list = closed_paint(st, &verts, button);
     st.doc.push_undo();
     for ((x, y), c) in list {
-        st.doc.put(x, y, c);
+        st.doc.paint(x, y, c);
     }
 }
 

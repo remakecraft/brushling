@@ -18,7 +18,7 @@ fn clear_image(st: &mut State) -> HResult<()> {
     for y in 0..st.doc.height as i32 {
         for x in 0..st.doc.width as i32 {
             // `put` applies the colour-mode and palette snapping rules.
-            st.doc.put(x, y, bg);
+            st.doc.paint(x, y, bg);
         }
     }
     Ok(())
