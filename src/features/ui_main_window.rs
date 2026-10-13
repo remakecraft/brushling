@@ -6,6 +6,7 @@
 
 use crate::registry::Registry;
 use crate::render::CANVAS_MARGIN;
+use crate::features::view_panels::docked_visible;
 use crate::state::State;
 use crate::types::*;
 
@@ -24,14 +25,9 @@ pub const SCROLL_BAR: u32 = 16;
 /// Workspace size a freshly started window has.
 const DEFAULT_WORKSPACE: (u32, u32) = (800, 600);
 
-/// Whether a docked bar is currently shown. The View menu (view.panels) owns
-/// this; until it is built every bar is shown, as at startup.
+/// Whether a panel is currently shown (view.panels owns the state).
 pub fn panel_visible(st: &State, panel: Panel) -> bool {
-    match panel {
-        Panel::ToolBox | Panel::ColorBox | Panel::StatusBar => true,
-        Panel::TextToolbar => st.text_toolbar,
-        Panel::Thumbnail | Panel::Help => false,
-    }
+    crate::features::view_panels::visible(st, panel)
 }
 
 /// The smallest client size: width of the docked colour box, height of the
@@ -68,8 +64,15 @@ pub fn title(st: &State) -> String {
 /// follows the new geometry.
 pub fn set_window_size(st: &mut State, w: u32, h: u32) {
     st.window = clamped((w, h));
+    refresh_workspace(st);
+}
+
+/// Recompute the workspace size from the current layout (window size and the
+/// docked bars) and keep the scroll offset inside the canvas.
+pub fn refresh_workspace(st: &mut State) {
     let (_, _, ww, wh) = layout(st).workspace;
     st.workspace_size = (ww, wh);
+    crate::features::view_zoom::clamp_scroll(st);
 }
 
 /// Whether the zoomed canvas needs (horizontal, vertical) scroll bars in an
@@ -90,8 +93,8 @@ fn scroll_bars(content: (i64, i64), avail: (i64, i64)) -> (bool, bool) {
 
 pub fn layout(st: &State) -> Layout {
     let (cw, ch) = clamped(st.window);
-    let tool_w = if panel_visible(st, Panel::ToolBox) { TOOL_BOX_DOCKED.0 } else { 0 };
-    let color_h = if panel_visible(st, Panel::ColorBox) { COLOR_BOX_DOCKED.1 } else { 0 };
+    let tool_w = if docked_visible(st, Panel::ToolBox) { TOOL_BOX_DOCKED.0 } else { 0 };
+    let color_h = if docked_visible(st, Panel::ColorBox) { COLOR_BOX_DOCKED.1 } else { 0 };
     let status_h = if panel_visible(st, Panel::StatusBar) { STATUS_BAR_HEIGHT } else { 0 };
     let band_w = cw - tool_w;
     let band_h = ch.saturating_sub(MENU_BAR_HEIGHT + color_h + status_h);

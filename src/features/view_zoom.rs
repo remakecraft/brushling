@@ -57,6 +57,7 @@ pub fn set_zoom_at(st: &mut State, zoom: u32, scroll: Option<(i32, i32)>) -> HRe
     ));
     clamp_scroll(st);
     st.mag_hover = None;
+    crate::features::view_thumbnail::on_zoom_changed(st);
     crate::features::tool_text::on_zoom_changed(st)
 }
 

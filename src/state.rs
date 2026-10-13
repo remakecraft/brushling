@@ -165,12 +165,17 @@ pub struct State {
     pub page_setup: crate::features::file_print::PageSetup,
     /// Print Preview: the 1-based current page while the preview is shown.
     pub print_preview: Option<u32>,
+    // ----- view.panels / view.thumbnail / view.view_bitmap
+    /// View toggles and floating positions of the panels and the thumbnail window.
+    pub panels: crate::features::view_panels::Panels,
+    /// The full-screen View Bitmap view is up.
+    pub view_bitmap: bool,
 }
 
 impl State {
     pub fn new(settings: Settings, services: Services, screen: (u32, u32)) -> HResult<State> {
         let (w, h) = settings.new_size().unwrap_or(DEFAULT_SIZE);
-        Ok(State {
+        let mut st = State {
             doc: Document::new(w, h, Rgb::W)?,
             fg: Rgb::K,
             bg: Rgb::W,
@@ -233,7 +238,11 @@ impl State {
             ptr_mods: Mods::default(),
             page_setup: Default::default(),
             print_preview: None,
-        })
+            panels: crate::features::view_panels::Panels::new(screen),
+            view_bitmap: false,
+        };
+        crate::features::ui_layout_persistence::restore(&mut st);
+        Ok(st)
     }
 
     /// Install a new document and drop every piece of per-document state.
