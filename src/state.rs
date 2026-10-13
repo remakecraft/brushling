@@ -79,6 +79,12 @@ pub struct State {
     // ----- tool.select (shared selection model, see selection.rs)
     pub sel: Option<crate::selection::Sel>,
     pub sel_drag: Option<crate::selection::SelDrag>,
+    /// selection.move_copy / selection.resize: the drag in progress on the
+    /// selection itself (body move or handle resize).
+    pub sel_gesture: Option<crate::selection::SelGesture>,
+    /// Kind of the pointer event being routed; lets pointer hooks tell a
+    /// press from a drag from a release (set by `State::pointer`).
+    pub ptr_kind: Option<PointerKind>,
     /// The stroke has started (set at a press on the canvas, so a pointer
     /// that left and re-enters the canvas continues it).
     pub pencil_active: bool,
@@ -140,6 +146,8 @@ impl State {
             pencil_base: None,
             sel: None,
             sel_drag: None,
+            sel_gesture: None,
+            ptr_kind: None,
             pencil_active: false,
             pencil_pushed: false,
             stroke_base: None,
