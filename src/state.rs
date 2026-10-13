@@ -90,6 +90,8 @@ pub struct State {
     // ----- tool.pick_color
     /// The tool that was active before the current one.
     pub prev_tool: Tool,
+    /// file.save: a save waiting for the colour-loss warning to be answered.
+    pub pending_save: Option<(std::path::PathBuf, u32)>,
 }
 
 impl State {
@@ -124,6 +126,7 @@ impl State {
             pencil_pushed: false,
             stroke_base: None,
             prev_tool: Tool::Pencil,
+            pending_save: None,
         })
     }
 

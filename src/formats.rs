@@ -26,7 +26,8 @@ pub struct DecodeError {
 /// Decoder entry point: `None` when the bytes are not this decoder's format.
 pub type DecodeFn = fn(&[u8]) -> Option<Result<Decoded, DecodeError>>;
 
-pub const CANNOT_OPEN: &str = "This file cannot be opened.";
+pub const CANNOT_OPEN: &str =
+    "This file cannot be opened: it is not a bitmap or uses a format Brushling does not support.";
 
 /// Run the registered decoders in order; the first that recognises the bytes
 /// decides.
@@ -45,21 +46,29 @@ impl State {
     /// document untouched; the call itself still succeeds, like the user
     /// seeing the box.
     pub fn open_path(&mut self, path: &Path) -> HResult<()> {
+        self.open_path_checked(path).map(|_| ())
+    }
+
+    /// Like [`State::open_path`], but reports whether the file was opened.
+    pub(crate) fn open_path_checked(&mut self, path: &Path) -> HResult<bool> {
         let shown = path.display().to_string();
         let bytes = match std::fs::read(path) {
             Ok(b) => b,
             Err(_) => {
                 self.error_box(&format!("{shown}\n{CANNOT_OPEN}"));
-                return Ok(());
+                return Ok(false);
             }
         };
         match decode(&bytes) {
             Ok(d) => {
                 let doc = Document::from_image(d.image, Some(path.to_path_buf()), d.depth, d.palette)?;
                 self.replace_document(doc);
+                Ok(true)
             }
-            Err(e) => self.error_box(&format!("{shown}\n{}", e.message)),
+            Err(e) => {
+                self.error_box(&format!("{shown}\n{}", e.message));
+                Ok(false)
+            }
         }
-        Ok(())
     }
 }

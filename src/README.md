@@ -57,6 +57,20 @@ validation message box returns to the dialog beneath after `OK`.
   palette)` when indices are already known; `keeps_source_palette(source_depth,
   &palette, depth)` is the same-depth-keeps-palette rule for file.save.
 
+## Open and save (file.open, file.save, format.color_reduction)
+- `file_open::open_file(st, path) -> HResult<bool>`: replaces the document (true) or shows the
+  cannot-open / not-enough-memory box and keeps it (false). The recent-file list should be
+  updated from its success branch; the save-changes check belongs in front of
+  `file_open::show_open_dialog(st)` (the File > Open... command body).
+- `file_save::save_document(st)` is File > Save; `file_save::show_save_as(st)` opens the dialog.
+- `file_save::request_save(st, path, depth)` writes after the colour-loss warning (OK/Cancel;
+  the pending target lives in `State::pending_save`). `file_save::save_to(st, path, depth) ->
+  HResult<bool>` writes without asking, updates path/depth/palette/pixels, clears dirty, never
+  touches undo, and shows "The file could not be saved: ..." (false) on I/O failure. The recent
+  list should be updated from its success branch. A "continue after save" hook for the
+  save-changes prompt has to be added there (also after the warning box and the Save As dialog).
+- `format_color_reduction::{fixed_palette(depth), reduce, loses_colors, WARNING}`.
+
 ## Other hooks
 - `r.pointer_hook(f)`: sees every pointer event before the tool; return `true`
   to consume (resize handles, selection handles).
