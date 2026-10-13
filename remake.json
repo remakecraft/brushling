@@ -6,9 +6,25 @@
   "models": {
     "planner": "opus",
     "builder": "sonnet",
-    "reviewer": "opus"
+    "reviewer": "opus",
+    "codex": "gpt-6.1-sol"
   },
-  "blocked": [],
+  "blocked": [
+    "jspaint",
+    "98.js",
+    "ReactOS",
+    "kolourpaint",
+    "Wine",
+    "Pinta",
+    "paint.net",
+    "miniPaint",
+    "mtPaint",
+    "Tux Paint",
+    "tuxpaint",
+    "GrafX2",
+    "LazPaint",
+    "Classic Paint"
+  ],
   "commands": {
     "build": "cargo build --all-targets",
     "testVisible": "node \"{plugin}/scripts/runners/nextest.mjs\" {suite} \"{report}\"",
