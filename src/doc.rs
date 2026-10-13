@@ -21,6 +21,13 @@ pub fn check_size(w: u32, h: u32) -> HResult<()> {
     }
 }
 
+/// The black-and-white mapping of a colour: white when
+/// 299R + 587G + 114B >= 128000, else black.
+pub fn to_black_or_white(c: Rgb) -> Rgb {
+    let lum = 299 * c.r as u32 + 587 * c.g as u32 + 114 * c.b as u32;
+    if lum >= 128_000 { Rgb::W } else { Rgb::K }
+}
+
 /// Everything an undo step has to restore.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Snapshot {
@@ -101,7 +108,8 @@ impl Document {
     pub fn put(&mut self, x: i32, y: i32, c: Rgb) -> bool {
         match self.index(x, y) {
             Some(i) => {
-                self.pixels[i] = c;
+                // In black-and-white mode every painted colour snaps to K or W.
+                self.pixels[i] = if self.color_mode == ColorMode::BlackAndWhite { to_black_or_white(c) } else { c };
                 true
             }
             None => false,
