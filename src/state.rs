@@ -141,6 +141,17 @@ pub struct State {
     pub custom_colors: [Rgb; 16],
     /// Slot (0-based) the next "Add to Custom Colors" fills.
     pub custom_next: usize,
+    // ----- ui.main_window / ui.status_bar / tools.toolbox
+    /// Requested client size of the main window (clamped to the minimum on read).
+    pub window: (u32, u32),
+    /// Where the pointer rests: a tool button, a highlighted menu item or nothing.
+    pub hover: Hover,
+    /// Virtual time at which `hover` last changed (tooltip delay).
+    pub hover_since: u64,
+    /// Latest pointer position in image coordinates (`None` off the canvas)
+    /// and its modifiers, for the status bar.
+    pub ptr_image: Option<(i32, i32)>,
+    pub ptr_mods: Mods,
 }
 
 impl State {
@@ -198,6 +209,11 @@ impl State {
             last_swatch: 0,
             custom_colors: [Rgb::W; 16],
             custom_next: 0,
+            window: crate::features::ui_main_window::default_window(),
+            hover: Hover::Nothing,
+            hover_since: 0,
+            ptr_image: None,
+            ptr_mods: Mods::default(),
         })
     }
 
