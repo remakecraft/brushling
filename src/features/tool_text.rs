@@ -64,6 +64,9 @@ pub struct TextSession {
     pub anchor: Option<usize>,
     /// The right-click context menu is open (see `toolbar`).
     menu_open: bool,
+    /// The toolbar's font size list has keyboard focus (see `toolbar`); Esc
+    /// then hands focus back to the frame instead of committing it.
+    size_list_focus: bool,
     undo: Vec<EditState>,
 }
 
@@ -514,6 +517,7 @@ impl ToolHandler for TextTool {
         let shift = mods.shift;
         match key {
             Key::Escape if toolbar::menu_is_open(st) => toolbar::close_context_menu(st),
+            Key::Escape if toolbar::size_list_has_focus(st) => toolbar::return_focus_to_frame(st),
             Key::Escape => commit_frame(st),
             Key::Char(c) if !c.is_control() => {
                 edit(st, |s| {
@@ -640,7 +644,7 @@ fn create_frame(st: &mut State, start: (i32, i32), end: (i32, i32)) {
     } else {
         rect_from_corners(clamp(start), clamp(end))
     };
-    st.text = Some(TextSession { rect, chars: Vec::new(), cursor: 0, anchor: None, menu_open: false, undo: Vec::new() });
+    st.text = Some(TextSession { rect, chars: Vec::new(), cursor: 0, anchor: None, menu_open: false, size_list_focus: false, undo: Vec::new() });
 }
 
 #[cfg(test)]

@@ -5,8 +5,9 @@
 //! View > Text Toolbar is checked (`view_panels`), and every change restyles
 //! the whole frame because `paint` reads `text_style` on each render.
 //! Only the size and the Bold / Italic / Underline toggles change the
-//! rendering; the bundled font is the only entry of the font list (system
-//! fonts are never read), so choosing a font has no visible effect.
+//! rendering; the bundled font is the only font that is drawn. Installed
+//! fonts come from the platform; the headless build has none, so choosing a
+//! font has no visible effect.
 
 use super::{frame_active, BUNDLED_FONT, FONT_SIZES};
 use crate::features::view_panels;
@@ -19,9 +20,36 @@ const COPY: &str = "Copy";
 const PASTE: &str = "Paste";
 const TOOLBAR: &str = "Text Toolbar";
 
-/// Entries of the font list, bundled font first.
+/// Entries of the font list: the bundled font first, then installed fonts.
 pub fn font_names() -> Vec<String> {
-    vec![BUNDLED_FONT.to_owned()]
+    let mut names = vec![BUNDLED_FONT.to_owned()];
+    names.extend(platform_font_names().into_iter().filter(|n| n != BUNDLED_FONT));
+    names
+}
+
+/// Installed fonts come from the platform; the headless build has none.
+fn platform_font_names() -> Vec<String> {
+    Vec::new()
+}
+
+pub fn size_list_has_focus(st: &State) -> bool {
+    st.text.as_ref().is_some_and(|s| s.size_list_focus)
+}
+
+/// Esc in the size list: focus goes back to the frame, which stays open.
+pub fn return_focus_to_frame(st: &mut State) {
+    if let Some(s) = st.text.as_mut() {
+        s.size_list_focus = false;
+    }
+}
+
+/// Give the toolbar's size list keyboard focus.
+pub fn focus_size_list(st: &mut State) -> HResult<()> {
+    require_shown(st)?;
+    if let Some(s) = st.text.as_mut() {
+        s.size_list_focus = true;
+    }
+    Ok(())
 }
 
 pub fn state(st: &State) -> TextToolbarState {
@@ -61,6 +89,8 @@ pub fn set_size(st: &mut State, pt: u32) -> HResult<()> {
         return Err(HarnessError::Invalid(format!("{pt} is not in the size list")));
     }
     st.text_style.size_pt = pt;
+    // Choosing a size leaves keyboard focus in the size list.
+    focus_size_list(st)?;
     // A bigger or smaller font re-wraps the text, so the frame follows.
     super::fit(st);
     Ok(())
@@ -147,7 +177,14 @@ pub fn context_click(st: &mut State, label: &str) -> HResult<()> {
 impl App {
     /// The text toolbar's lists and current choices (tool.text).
     pub fn text_toolbar(&self) -> HResult<TextToolbarState> {
+        require_shown(&self.st)?;
         Ok(state(&self.st))
+    }
+
+    /// Put keyboard focus in the toolbar's font size list; Esc then returns
+    /// it to the frame without committing (tool.text).
+    pub fn focus_text_size_list(&mut self) -> HResult<()> {
+        focus_size_list(&mut self.st)
     }
 
     pub fn set_text_font(&mut self, font: &str) -> HResult<()> {
@@ -222,6 +259,21 @@ mod tests {
         assert!(a.set_text_size(13).is_err() && a.set_text_font("Nope").is_err());
         let t = a.text_toolbar().unwrap();
         assert_eq!((t.size_pt, t.italic), (24, true));
+    }
+
+    #[test]
+    fn esc_in_the_size_list_returns_focus_without_committing() {
+        let mut a = app("sizefocus");
+        assert!(a.text_toolbar().is_err() && a.focus_text_size_list().is_err());
+        make_frame(&mut a);
+        a.focus_text_size_list().unwrap();
+        a.key(Key::Escape, Mods::NONE).unwrap();
+        assert!(a.panel(Panel::TextToolbar).unwrap().visible);
+        a.set_text_size(12).unwrap();
+        a.key(Key::Escape, Mods::NONE).unwrap();
+        assert!(a.panel(Panel::TextToolbar).unwrap().visible);
+        a.key(Key::Escape, Mods::NONE).unwrap();
+        assert!(!a.panel(Panel::TextToolbar).unwrap().visible);
     }
 
     #[test]
