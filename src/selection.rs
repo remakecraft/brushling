@@ -33,7 +33,14 @@ pub enum SelGesture {
     Move { last: (i32, i32), ctrl: bool, started: bool },
     /// Dragging a handle (selection.resize). `base` is the content as it was
     /// when the drag began, captured at the first move event.
-    Resize { handle: Handle, start: Rect, base: Option<crate::features::selection_image_ops_scope::Raster> },
+    /// `press` is where the button went down; a release at the same point
+    /// with no move in between is a plain click and resizes nothing.
+    Resize {
+        handle: Handle,
+        start: Rect,
+        press: Option<(i32, i32)>,
+        base: Option<crate::features::selection_image_ops_scope::Raster>,
+    },
 }
 
 /// An in-progress Select / Free-Form Select drag.

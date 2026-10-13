@@ -29,6 +29,10 @@ fn press(st: &mut State, ev: &PointerEvent) -> bool {
     if !matches!(st.tool, Tool::Select | Tool::FreeFormSelect) {
         return false;
     }
+    // Right-click with a selection tool does nothing.
+    if ev.button != Some(Button::Left) {
+        return false;
+    }
     let (Some(sel), Some((x, y))) = (st.sel.as_ref(), ev.image) else { return false };
     let b = sel.bounds;
     if x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1 {
