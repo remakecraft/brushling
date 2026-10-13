@@ -24,6 +24,7 @@ pub fn register(r: &mut Registry) {
 
 fn show_copy_to(st: &mut State) -> HResult<()> {
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::FileSave,
         title: "Copy To".to_owned(),
         text: String::new(),
@@ -101,6 +102,7 @@ fn write_copy(st: &mut State, path: &Path, depth: u32, img: &Image) {
 
 fn show_paste_from(st: &mut State) -> HResult<()> {
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::FileOpen,
         title: "Paste From".to_owned(),
         text: String::new(),

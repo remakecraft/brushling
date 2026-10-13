@@ -50,7 +50,7 @@ as a selection. While the Text tool has a text frame, Cut, Copy and Paste work o
         keywords: &["view", "zoom", "grid", "thumbnail", "tool box", "color box", "status bar", "view bitmap"],
         body: "The first four items show or hide the Tool Box, the Color Box, the Status Bar and the Text \
 Toolbar. Zoom offers Normal Size, Large Size, a custom percentage, a pixel grid that appears at high zoom, and \
-a thumbnail window that shows the whole picture at actual size. View Bitmap shows the picture alone on a \
+a thumbnail window that shows a 200 by 150 pixel part of the picture at 100%, starting from the top-left visible pixel. View Bitmap shows the picture alone on a \
 black screen until you press a key or a mouse button.",
     },
     Topic {
@@ -60,7 +60,8 @@ black screen until you press a key or a mouse button.",
 a percentage or slants it by an angle. Invert Colors swaps every colour for its opposite. Attributes sets the \
 width, height, units and whether the picture is black and white. Clear Image fills the picture with the \
 background colour. Draw Opaque decides whether the background of a moved selection is painted over what is \
-below it. These commands act on the selection when there is one.",
+below it. Flip/Rotate, Stretch/Skew and Invert Colors act on the selection when there is one; the others act \
+on the whole picture.",
     },
     Topic {
         title: "Colors menu",

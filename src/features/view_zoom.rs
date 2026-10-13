@@ -95,6 +95,7 @@ pub(crate) fn image_to_screen(st: &State, x: i32, y: i32) -> (i64, i64) {
 fn custom(st: &mut State) -> HResult<()> {
     let current = format!("{}%", st.zoom);
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::CustomZoom,
         title: "Custom Zoom".to_owned(),
         text: String::new(),

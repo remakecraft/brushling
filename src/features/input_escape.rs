@@ -67,7 +67,7 @@ fn cancel_selection_gesture(st: &mut State) -> bool {
 
 /// Cancel the button-held gesture, if any. Returns true when something was
 /// cancelled and the tool's own Esc must not run on top of it.
-fn cancel_gesture(st: &mut State) -> bool {
+pub(crate) fn cancel_gesture(st: &mut State) -> bool {
     let Some(h) = st.held else { return false };
     if h.cancelled {
         return false;

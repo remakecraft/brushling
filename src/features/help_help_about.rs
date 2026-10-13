@@ -243,19 +243,9 @@ pub fn act(st: &mut State, action: HelpAction) -> HResult<()> {
         HelpAction::Options(item) => match item.as_str() {
             "Back" => h.step(false),
             "Forward" => h.step(true),
-            "Print" => return print_topic(st),
+            "Print" => return crate::features::file_print::print_topic_command(st),
             _ => return Err(HarnessError::Invalid(format!("the Options menu has no item {item:?}"))),
         },
-    }
-    Ok(())
-}
-
-/// Options > Print: the shown topic goes to the printer as one page.
-fn print_topic(st: &mut State) -> HResult<()> {
-    if st.services.printer {
-        st.record_call(PlatformCall::Print { pages: 1 });
-    } else {
-        st.error_box("No printer is installed.");
     }
     Ok(())
 }
@@ -267,6 +257,7 @@ pub fn about_text() -> String {
 
 fn about(st: &mut State) -> HResult<()> {
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::About,
         title: "About Brushling".to_owned(),
         text: about_text(),
@@ -379,6 +370,10 @@ mod tests {
     fn options_print_records_one_page_job() {
         let mut a = open("print");
         a.help_action(HelpAction::Options("Print".into())).unwrap();
+        // The Print dialog every print shows (file.print B4) comes first.
+        assert_eq!(a.dialog().unwrap().unwrap().kind, crate::DialogKind::Print);
+        assert!(a.platform_calls().unwrap().is_empty());
+        a.dialog_click("OK").unwrap();
         assert_eq!(a.platform_calls().unwrap(), [PlatformCall::Print { pages: 1 }]);
     }
 

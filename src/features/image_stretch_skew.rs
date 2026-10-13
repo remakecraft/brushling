@@ -27,6 +27,7 @@ pub fn register(r: &mut Registry) {
 
 fn open_dialog(st: &mut State) -> HResult<()> {
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::StretchSkew,
         title: "Stretch and Skew".to_owned(),
         text: String::new(),

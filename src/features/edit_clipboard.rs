@@ -142,7 +142,7 @@ fn enlarge_answered(st: &mut State, button: &str) -> HResult<()> {
 /// Grow the canvas to at least `w` x `h`; new area is the background colour.
 fn grow_canvas(st: &mut State, w: u32, h: u32) {
     let (nw, nh) = (st.doc.width.max(w).min(MAX_DIM), st.doc.height.max(h).min(MAX_DIM));
-    let (ow, bg) = (st.doc.width as usize, st.bg);
+    let (ow, bg) = (st.doc.width as usize, st.bg_snapped());
     let mut pixels = vec![bg; nw as usize * nh as usize];
     for y in 0..st.doc.height.min(nh) as usize {
         for x in 0..ow.min(nw as usize) {

@@ -392,6 +392,9 @@ pub struct Dialog {
     pub text: String,
     /// Button labels in display order.
     pub buttons: Vec<String>,
+    /// Buttons in `buttons` that are shown greyed out; clicking one does
+    /// nothing.
+    pub disabled_buttons: Vec<String>,
     pub fields: Vec<DialogField>,
 }
 
@@ -542,6 +545,9 @@ pub struct Layout {
     pub workspace: (i32, i32, u32, u32),
     pub hscroll: bool,
     pub vscroll: bool,
+    /// Top-left of the main window on the virtual desktop.
+    pub window_x: i32,
+    pub window_y: i32,
 }
 
 /// What the mouse pointer rests on (tooltips and status bar messages).
@@ -608,9 +614,6 @@ pub struct StartOptions {
     pub args: Vec<String>,
     /// Primary screen size; the primary screen's top-left is (0,0).
     pub screen: (u32, u32),
-    /// Further connected screens (position and size in virtual-desktop
-    /// coordinates); empty for a single-screen machine.
-    pub extra_screens: Vec<ScreenRect>,
     pub services: Services,
 }
 
@@ -630,7 +633,6 @@ impl StartOptions {
             config_dir: config_dir.into(),
             args: Vec::new(),
             screen: (1920, 1080),
-            extra_screens: Vec::new(),
             services: Services::default(),
         }
     }

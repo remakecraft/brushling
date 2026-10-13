@@ -68,7 +68,9 @@ pub struct State {
     pub now_ms: u64,
     pub held: Option<Held>,
     pub last_press: Option<LastPress>,
-    /// Last pointer position over the canvas, in image coordinates.
+    /// Last position the pointer had *over the canvas*, in image coordinates;
+    /// it keeps its value when the pointer leaves (tools that need "where it
+    /// was"). Contrast `ptr_image`, which is `None` off the canvas.
     pub pointer_image: Option<(i32, i32)>,
     /// Open modal dialogs, bottom first; the last one is topmost.
     pub dialogs: Vec<OpenDialog>,
@@ -168,8 +170,9 @@ pub struct State {
     pub hover: Hover,
     /// Virtual time at which `hover` last changed (tooltip delay).
     pub hover_since: u64,
-    /// Latest pointer position in image coordinates (`None` off the canvas)
-    /// and its modifiers, for the status bar.
+    /// Current pointer position in image coordinates, `None` when it is off
+    /// the canvas (unlike `pointer_image`, which remembers the last on-canvas
+    /// point), and its modifiers, for the status bar.
     pub ptr_image: Option<(i32, i32)>,
     pub ptr_mods: Mods,
     // ----- file.print

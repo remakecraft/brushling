@@ -75,8 +75,15 @@ impl App {
     /// Start the application (startup behaviour of core.document: untitled
     /// default-size image, or the file named by `args[0]`).
     pub fn start(opts: StartOptions) -> HResult<App> {
+        App::start_with_screens(opts, &[])
+    }
+
+    /// [`App::start`] on a multi-screen machine: `extra_screens` are the
+    /// further connected screens (virtual-desktop coordinates) besides the
+    /// primary one in `opts.screen`.
+    pub fn start_with_screens(opts: StartOptions, extra_screens: &[ScreenRect]) -> HResult<App> {
         let settings = Settings::load(&opts.config_dir);
-        let mut st = State::with_screens(settings, opts.services, opts.screen, &opts.extra_screens)?;
+        let mut st = State::with_screens(settings, opts.services, opts.screen, extra_screens)?;
         if let Some(arg) = opts.args.first() {
             st.open_path(std::path::Path::new(arg))?;
         }
@@ -214,6 +221,13 @@ impl App {
     /// Request a client-area size (subject to the minimum size).
     pub fn set_window_size(&mut self, w: u32, h: u32) -> HResult<()> {
         crate::features::ui_main_window::set_window_size(&mut self.st, w, h);
+        Ok(())
+    }
+
+    /// Move the window to `(x, y)` on the virtual desktop; the layout
+    /// reports it as `window_x` / `window_y`.
+    pub fn set_window_pos(&mut self, x: i32, y: i32) -> HResult<()> {
+        crate::features::ui_main_window::set_window_pos(&mut self.st, x, y);
         Ok(())
     }
 

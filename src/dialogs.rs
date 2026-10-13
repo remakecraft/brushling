@@ -37,13 +37,11 @@ pub struct OpenDialog {
     pub handler: DialogFn,
     /// Only used by [`message_box_handler`].
     pub on_button: Option<MessageFn>,
-    /// Buttons that are shown but greyed out; pressing one is rejected.
-    pub disabled_buttons: Vec<String>,
 }
 
 impl OpenDialog {
     pub fn new(dialog: Dialog, handler: DialogFn) -> OpenDialog {
-        OpenDialog { dialog, handler, on_button: None, disabled_buttons: Vec::new() }
+        OpenDialog { dialog, handler, on_button: None }
     }
 
     /// Convenience constructor for a dialog with text fields.
@@ -94,13 +92,14 @@ impl State {
     /// Open a message box. `on_button` runs after the box closed.
     pub fn message_box(&mut self, title: &str, text: &str, buttons: &[&str], on_button: Option<MessageFn>) {
         let dialog = Dialog {
+            disabled_buttons: Vec::new(),
             kind: DialogKind::MessageBox,
             title: title.to_owned(),
             text: text.to_owned(),
             buttons: buttons.iter().map(|b| (*b).to_owned()).collect(),
             fields: Vec::new(),
         };
-        self.open_dialog(OpenDialog { dialog, handler: message_box_handler, on_button, disabled_buttons: Vec::new() });
+        self.open_dialog(OpenDialog { dialog, handler: message_box_handler, on_button });
     }
 
     /// An error box titled "Brushling" with a single OK button.
@@ -126,8 +125,9 @@ impl State {
                 top.dialog.title
             )));
         }
-        if top.disabled_buttons.iter().any(|b| b == button) {
-            return Err(HarnessError::Invalid(format!("button {button:?} is disabled")));
+        // A greyed-out button does nothing when pressed.
+        if top.dialog.disabled_buttons.iter().any(|b| b == button) {
+            return Ok(());
         }
         self.run_dialog(DialogAction::Click(button))
     }
