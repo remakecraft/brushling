@@ -27,12 +27,13 @@ fn can_copy(st: &State) -> bool {
     st.has_selection() || tool_text::selected_text(st).is_some()
 }
 
-/// Paste needs an image; clipboard text only matters to an active text frame
-/// (tool.text), so it enables Paste while the Text tool is selected.
+/// Paste needs an image, except while the Text tool is selected (an image is
+/// never pasted then); clipboard text only matters to an active text frame
+/// (tool.text, ui.menu_enable_state).
 fn can_paste(st: &State) -> bool {
     match st.clipboard {
-        ClipboardContent::Image(_) => true,
-        ClipboardContent::Text(_) => st.tool == Tool::Text,
+        ClipboardContent::Image(_) => st.tool != Tool::Text,
+        ClipboardContent::Text(_) => tool_text::frame_active(st),
         ClipboardContent::Empty => false,
     }
 }
@@ -94,8 +95,9 @@ fn cut(st: &mut State) -> HResult<()> {
 }
 
 fn paste(st: &mut State) -> HResult<()> {
-    if tool_text::frame_active(st) {
-        // Only text can be pasted into a frame; an image is never pasted.
+    if st.tool == Tool::Text {
+        // Only text can be pasted into a frame; an image is never pasted
+        // while the Text tool is active, with or without a frame.
         if let ClipboardContent::Text(t) = st.clipboard.clone() {
             tool_text::insert_text(st, &t);
         }
