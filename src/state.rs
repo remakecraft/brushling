@@ -92,6 +92,10 @@ pub struct State {
     pub prev_tool: Tool,
     /// file.save: a save waiting for the colour-loss warning to be answered.
     pub pending_save: Option<(std::path::PathBuf, u32)>,
+    // ----- tool.curve / tool.polygon / tool.airbrush (per-gesture data)
+    pub curve: crate::features::tool_curve::CurveState,
+    pub poly: crate::features::tool_polygon::PolyState,
+    pub airbrush: crate::features::tool_airbrush::AirbrushState,
 }
 
 impl State {
@@ -127,6 +131,9 @@ impl State {
             stroke_base: None,
             prev_tool: Tool::Pencil,
             pending_save: None,
+            curve: Default::default(),
+            poly: Default::default(),
+            airbrush: Default::default(),
         })
     }
 
@@ -144,6 +151,9 @@ impl State {
         self.pencil_active = false;
         self.pencil_pushed = false;
         self.stroke_base = None;
+        self.curve = Default::default();
+        self.poly = Default::default();
+        self.airbrush = Default::default();
     }
 
     /// The size File > New creates: the confirmed Attributes size, else the
