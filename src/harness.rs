@@ -270,7 +270,7 @@ impl App {
     }
 
     pub fn text_frame(&self) -> HResult<Option<TextFrame>> {
-        Err(HarnessError::Unbuilt("tool.text"))
+        Ok(crate::features::tool_text::frame(&self.st))
     }
 
     /// Current system clipboard content.
