@@ -127,6 +127,15 @@ pub struct State {
     /// A canvas resize-handle drag (live: the document already shows the
     /// size a release would keep). Only active while `held` is set.
     pub canvas_drag: Option<crate::features::canvas_resize_handle::CanvasDrag>,
+    // ----- colors.color_box / colors.edit_colors (session state, kept across File > New)
+    /// The 28 swatches; Edit Colors redefines them.
+    pub swatches: [Rgb; crate::features::color_box::SWATCH_COUNT],
+    /// Index (0-based) of the swatch most recently clicked, the one Edit Colors edits.
+    pub last_swatch: usize,
+    /// The 16 custom colours of the Edit Colors dialog.
+    pub custom_colors: [Rgb; 16],
+    /// Slot (0-based) the next "Add to Custom Colors" fills.
+    pub custom_next: usize,
 }
 
 impl State {
@@ -178,6 +187,10 @@ impl State {
             after_save: None,
             attr_draft: Default::default(),
             canvas_drag: None,
+            swatches: crate::features::color_box::DEFAULT_SWATCHES,
+            last_swatch: 0,
+            custom_colors: [Rgb::W; 16],
+            custom_next: 0,
         })
     }
 

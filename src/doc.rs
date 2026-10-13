@@ -108,8 +108,13 @@ impl Document {
     pub fn put(&mut self, x: i32, y: i32, c: Rgb) -> bool {
         match self.index(x, y) {
             Some(i) => {
-                // In black-and-white mode every painted colour snaps to K or W.
-                self.pixels[i] = if self.color_mode == ColorMode::BlackAndWhite { to_black_or_white(c) } else { c };
+                // In black-and-white mode every painted colour snaps to K or W;
+                // an image with its own palette snaps to the nearest entry.
+                self.pixels[i] = match (self.color_mode, self.palette.as_deref()) {
+                    (ColorMode::BlackAndWhite, _) => to_black_or_white(c),
+                    (_, Some(p)) => crate::features::colors_indexed_snap::nearest(p, c),
+                    _ => c,
+                };
                 true
             }
             None => false,
