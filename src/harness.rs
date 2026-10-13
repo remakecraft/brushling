@@ -57,13 +57,16 @@
 //! otherwise behaves like choosing the colours in the colour box (an active
 //! text frame is recoloured).
 
+use crate::doc::Document;
+use crate::settings::Settings;
+use crate::state::State;
 use crate::types::*;
 
 /// One running application instance with its replaceable platform services
 /// (clipboard, file dialogs, printer, mail, wallpaper, settings store).
 #[derive(Debug)]
 pub struct App {
-    _private: (),
+    pub(crate) st: State,
 }
 
 impl App {
@@ -72,131 +75,133 @@ impl App {
     /// Start the application (startup behaviour of core.document: untitled
     /// default-size image, or the file named by `args[0]`).
     pub fn start(opts: StartOptions) -> HResult<App> {
-        let _ = opts;
-        Err(HarnessError::Unbuilt("core.document"))
+        let settings = Settings::load(&opts.config_dir);
+        let mut st = State::new(settings, opts.services, opts.screen)?;
+        if let Some(arg) = opts.args.first() {
+            st.open_path(std::path::Path::new(arg))?;
+        }
+        Ok(App { st })
     }
 
     /// Replace the document with a clean, untitled `w` x `h` image filled
     /// with `fill` (no prompt, history cleared, colours/tools unchanged).
     pub fn new_document(&mut self, w: u32, h: u32, fill: Rgb) -> HResult<()> {
-        let _ = (w, h, fill);
-        Err(HarnessError::Unbuilt("core.document"))
+        let doc = Document::new(w, h, fill)?;
+        self.st.replace_document(doc);
+        Ok(())
     }
 
     /// Set one committed document pixel directly.
     pub fn set_pixel(&mut self, x: i32, y: i32, c: Rgb) -> HResult<()> {
-        let _ = (x, y, c);
-        Err(HarnessError::Unbuilt("core.document"))
+        if self.st.doc.put(x, y, c) {
+            Ok(())
+        } else {
+            Err(HarnessError::Invalid(format!("pixel ({x},{y}) is outside the document")))
+        }
     }
 
     /// One committed document pixel (excludes floating content and previews).
     pub fn pixel(&self, x: i32, y: i32) -> HResult<Rgb> {
-        let _ = (x, y);
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st
+            .doc
+            .get(x, y)
+            .ok_or_else(|| HarnessError::Invalid(format!("pixel ({x},{y}) is outside the document")))
     }
 
     /// All committed document pixels.
     pub fn pixels(&self) -> HResult<Image> {
-        Err(HarnessError::Unbuilt("core.document"))
+        Ok(self.st.doc.image())
     }
 
     pub fn document(&self) -> HResult<DocInfo> {
-        Err(HarnessError::Unbuilt("core.document"))
+        Ok(self.st.doc.info())
     }
 
     /// Set foreground and background colours.
     pub fn set_colors(&mut self, fg: Rgb, bg: Rgb) -> HResult<()> {
-        let _ = (fg, bg);
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st.fg = fg;
+        self.st.bg = bg;
+        Ok(())
     }
 
     /// (foreground, background).
     pub fn colors(&self) -> HResult<(Rgb, Rgb)> {
-        Err(HarnessError::Unbuilt("core.document"))
+        Ok((self.st.fg, self.st.bg))
     }
 
     /// Click a tool box button.
     pub fn select_tool(&mut self, tool: Tool) -> HResult<()> {
-        let _ = tool;
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st.select_tool(tool)
     }
 
     pub fn active_tool(&self) -> HResult<Tool> {
-        Err(HarnessError::Unbuilt("core.document"))
+        Ok(self.st.tool)
     }
 
     /// Click an option in the options box.
     pub fn set_tool_option(&mut self, option: ToolOption) -> HResult<()> {
-        let _ = option;
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st.set_tool_option(option)
     }
 
     pub fn tool_options(&self) -> HResult<ToolOptions> {
-        Err(HarnessError::Unbuilt("core.document"))
+        Ok(self.st.tool_options())
     }
 
     /// A pointer event (see module docs).
     pub fn pointer(&mut self, kind: PointerKind, pos: Pos, mods: Mods) -> HResult<()> {
-        let _ = (kind, pos, mods);
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st.pointer(kind, pos, mods)
     }
 
     /// A key press (see module docs).
     pub fn key(&mut self, key: Key, mods: Mods) -> HResult<()> {
-        let _ = (key, mods);
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st.key(key, mods)
     }
 
     /// Advance the virtual clock (airbrush ticks, double-click and tooltip
     /// timing).
     pub fn advance(&mut self, ms: u64) -> HResult<()> {
-        let _ = ms;
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st.advance(ms)
     }
 
     /// Seed the random generator (airbrush).
     pub fn seed(&mut self, seed: u64) -> HResult<()> {
-        let _ = seed;
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st.rng.reseed(seed);
+        Ok(())
     }
 
     /// Invoke a menu command by path (see module docs).
     pub fn menu(&mut self, path: &str) -> HResult<()> {
-        let _ = path;
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st.menu(path)
     }
 
     /// The topmost modal dialog, if any.
     pub fn dialog(&self) -> HResult<Option<Dialog>> {
-        Err(HarnessError::Unbuilt("core.document"))
+        Ok(self.st.top_dialog().cloned())
     }
 
     /// Set a dialog field (text) or choice (by label).
     pub fn dialog_set(&mut self, field: &str, value: &str) -> HResult<()> {
-        let _ = (field, value);
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st.dialog_set(field, value)
     }
 
     /// Press a dialog button by label.
     pub fn dialog_click(&mut self, button: &str) -> HResult<()> {
-        let _ = button;
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st.dialog_click(button)
     }
 
     /// Calls recorded by the printer, mail and wallpaper services, in order.
     pub fn platform_calls(&self) -> HResult<Vec<PlatformCall>> {
-        Err(HarnessError::Unbuilt("core.document"))
+        Ok(self.st.platform_calls.clone())
     }
 
     /// Render a surface to pixels.
     pub fn render(&self, surface: Surface) -> HResult<Image> {
-        let _ = surface;
-        Err(HarnessError::Unbuilt("core.document"))
+        self.st.render(surface)
     }
 
     /// `Some(exit code)` once the application has exited.
     pub fn exit_status(&self) -> HResult<Option<i32>> {
-        Err(HarnessError::Unbuilt("core.document"))
+        Ok(self.st.exit_code)
     }
 
     // ----- ui.main_window

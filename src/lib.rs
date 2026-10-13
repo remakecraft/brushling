@@ -17,8 +17,26 @@
 //!   Invoking a *disabled* menu item is not an error: it returns `Ok(())` and
 //!   changes nothing, exactly like clicking a greyed item.
 
+// Shared helpers are consumed by features as they land.
+#![allow(dead_code)]
+
 pub mod harness;
 pub mod types;
+
+// Private modules behind the frozen API (see src/README.md). Shared helpers
+// are consumed by features as they land, so unused items are expected.
+mod commands;
+mod dialogs;
+mod doc;
+mod features;
+mod formats;
+mod raster;
+mod registry;
+mod render;
+mod rng;
+mod settings;
+mod state;
+mod tools;
 
 pub use harness::App;
 pub use types::*;
