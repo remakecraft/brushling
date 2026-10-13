@@ -5,8 +5,6 @@
 //! axis with the larger distance and the stroke stays on that row or column.
 //! One press-to-release is one undo step.
 
-use std::cell::Cell;
-
 use crate::raster::shapes::path_points;
 use crate::registry::Registry;
 use crate::state::State;
@@ -20,24 +18,20 @@ pub fn register(r: &mut Registry) {
     r.tool(Tool::Brush, &BRUSH);
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Lock {
     Free,
     Horizontal,
     Vertical,
 }
 
-#[derive(Clone, Copy)]
-struct Stroke {
+/// The brush stroke in progress (kept in `State::brush_stroke`).
+#[derive(Debug, Clone, Copy)]
+pub struct Stroke {
     last: (i32, i32),
     start: (i32, i32),
     shift: bool,
     lock: Lock,
-}
-
-thread_local! {
-    /// The stroke in progress (cleared on release).
-    static STROKE: Cell<Option<Stroke>> = const { Cell::new(None) };
 }
 
 /// Footprint offsets `(dx, dy)` of brush shape 1..=12 relative to the stamp
@@ -117,30 +111,30 @@ fn constrain(s: &mut Stroke, p: (i32, i32)) -> (i32, i32) {
 
 impl ToolHandler for Brush {
     fn press(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
-        STROKE.with(|s| s.set(None));
+        st.brush_stroke = None;
         let Some(p) = ev.image else { return Ok(()) };
         st.doc.push_undo();
         let offsets = brush_offsets(st.options.brush_shape);
         let c = colour(st, ev.button);
         stamp(st, &offsets, p, c);
-        STROKE.with(|s| s.set(Some(Stroke { last: p, start: p, shift: ev.mods.shift, lock: Lock::Free })));
+        st.brush_stroke = Some(Stroke { last: p, start: p, shift: ev.mods.shift, lock: Lock::Free });
         Ok(())
     }
 
     fn drag(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
-        let Some(mut s) = STROKE.with(Cell::get) else { return Ok(()) };
+        let Some(mut s) = st.brush_stroke else { return Ok(()) };
         let Some(p) = ev.image else { return Ok(()) };
         let p = constrain(&mut s, p);
         let c = colour(st, ev.button);
         stamp_path(st, s.last, p, c);
         s.last = p;
-        STROKE.with(|cell| cell.set(Some(s)));
+        st.brush_stroke = Some(s);
         Ok(())
     }
 
     fn release(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
         self.drag(st, ev)?;
-        STROKE.with(|s| s.set(None));
+        st.brush_stroke = None;
         Ok(())
     }
 }

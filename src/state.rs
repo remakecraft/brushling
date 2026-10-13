@@ -73,9 +73,17 @@ pub struct State {
     pub exit_code: Option<i32>,
     /// ui.menu_bar: path of the menu opened with Alt+letter, if any.
     pub menu_open: Option<String>,
+    /// ui.menu_bar: the menu title highlighted by a lone Alt press (menu closed).
+    pub menu_highlight: Option<String>,
     // ----- tool.pencil (per-gesture data)
     pub pencil_last: Option<(i32, i32)>,
     pub pencil_base: Option<Vec<Rgb>>,
+    // ----- tool.eraser / tool.brush (per-gesture data)
+    pub eraser_last: Option<(i32, i32)>,
+    pub brush_stroke: Option<crate::features::tool_brush::Stroke>,
+    /// Modifiers at the latest event of a Line / shape drag, so the preview
+    /// (which only sees `&State`) constrains the way the commit will.
+    pub gesture_mods: Mods,
     // ----- tool.select (shared selection model, see selection.rs)
     pub sel: Option<crate::selection::Sel>,
     pub sel_drag: Option<crate::selection::SelDrag>,
@@ -183,8 +191,12 @@ impl State {
             dialogs: Vec::new(),
             exit_code: None,
             menu_open: None,
+            menu_highlight: None,
             pencil_last: None,
             pencil_base: None,
+            eraser_last: None,
+            brush_stroke: None,
+            gesture_mods: Mods::NONE,
             sel: None,
             sel_drag: None,
             sel_gesture: None,
@@ -237,6 +249,9 @@ impl State {
         self.pointer_image = None;
         self.pencil_last = None;
         self.pencil_base = None;
+        self.eraser_last = None;
+        self.brush_stroke = None;
+        self.gesture_mods = Mods::NONE;
         self.pencil_active = false;
         self.pencil_pushed = false;
         self.stroke_base = None;

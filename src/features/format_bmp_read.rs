@@ -117,13 +117,19 @@ pub(crate) fn decode_bmp(b: &[u8]) -> Result<Decoded, DecodeError> {
         2 => bpp == 4,
         _ => bpp == 16 || bpp == 32,
     };
+    // A compression that cannot go with this depth is as unsupported as an
+    // unknown compression value.
+    if !comp_ok {
+        return Err(DecodeError { message: NOT_ENOUGH_MEMORY.to_owned() });
+    }
     let top_down = h_raw < 0;
-    if !comp_ok || w <= 0 || h_raw == 0 || (top_down && (comp == 1 || comp == 2)) {
+    if w <= 0 || h_raw == 0 || (top_down && (comp == 1 || comp == 2)) {
         return Err(fail());
     }
     let h = h_raw.abs();
+    // A bitmap whose size cannot be allocated (file.open B5).
     if w > MAX_DIM as i64 || h > MAX_DIM as i64 {
-        return Err(fail());
+        return Err(DecodeError { message: NOT_ENOUGH_MEMORY.to_owned() });
     }
     let (w, h) = (w as usize, h as usize);
 
@@ -160,6 +166,19 @@ pub(crate) fn decode_bmp(b: &[u8]) -> Result<Decoded, DecodeError> {
         palette.as_ref().and_then(|p| p.get(i)).copied().unwrap_or(Rgb::K)
     };
 
+    // The pixel buffer is only allocated once the data is known to be able to
+    // fill it, so a tiny hostile header cannot demand hundreds of megabytes.
+    let rb = (w * bpp as usize).div_ceil(32) * 4;
+    if comp == 1 || comp == 2 {
+        // One token (2 bytes) paints at most 255 pixels; a delta (4 bytes)
+        // skips at most 255 x 255.
+        if (w as u64 * h as u64) > (data.len() as u64).saturating_mul(RLE_MAX_PIXELS_PER_BYTE) {
+            return Err(fail());
+        }
+    } else if rb.checked_mul(h).is_none_or(|need| data.len() < need) {
+        return Err(fail());
+    }
+
     // Rows as stored, first stored row first.
     let mut stored: Vec<Rgb> = vec![Rgb::K; w * h];
     match comp {
@@ -170,11 +189,6 @@ pub(crate) fn decode_bmp(b: &[u8]) -> Result<Decoded, DecodeError> {
             }
         }
         _ => {
-            let rb = (w * bpp as usize).div_ceil(32) * 4;
-            let need = rb.checked_mul(h).ok_or_else(fail)?;
-            if data.len() < need {
-                return Err(fail());
-            }
             for y in 0..h {
                 let row = &data[y * rb..(y + 1) * rb];
                 for x in 0..w {
@@ -209,9 +223,13 @@ pub(crate) fn decode_bmp(b: &[u8]) -> Result<Decoded, DecodeError> {
     })
 }
 
+/// Upper bound on the pixels one byte of RLE data can account for.
+const RLE_MAX_PIXELS_PER_BYTE: u64 = 65_025;
+
 /// Expand RLE8 / RLE4 data to one palette index per pixel, rows stored
 /// bottom-up. Pixels the stream skips stay index 0. A token cut short by the
-/// end of the data is a truncated file.
+/// end of the data, or data that ends before the end-of-bitmap marker, is a
+/// truncated file.
 fn decode_rle(data: &[u8], w: usize, h: usize, four: bool) -> Result<Vec<u8>, DecodeError> {
     let mut out = vec![0u8; w * h];
     let (mut x, mut y) = (0usize, 0usize);
@@ -249,7 +267,8 @@ fn decode_rle(data: &[u8], w: usize, h: usize, four: bool) -> Result<Vec<u8>, De
             count => {
                 let count = count as usize;
                 let bytes = if four { count.div_ceil(2) } else { count };
-                let run = data.get(p..p + bytes).ok_or_else(fail)?;
+                // The run is padded to an even number of bytes.
+                let run = data.get(p..p + bytes + (bytes & 1)).ok_or_else(fail)?;
                 for i in 0..count {
                     let v = if four {
                         if i % 2 == 0 { run[i / 2] >> 4 } else { run[i / 2] & 15 }
@@ -263,7 +282,7 @@ fn decode_rle(data: &[u8], w: usize, h: usize, four: bool) -> Result<Vec<u8>, De
             }
         }
     }
-    Ok(out)
+    Err(fail())
 }
 
 #[cfg(test)]
@@ -311,6 +330,32 @@ mod tests {
         assert_eq!(decode_bmp(&hdr(2, 2, 24, 4, &[], &[0; 4])).unwrap_err().message, NOT_ENOUGH_MEMORY);
         assert_eq!(decode_bmp(&hdr(2, 2, 24, 0, &[], &[0; 15])).unwrap_err().message, CANNOT_OPEN);
         assert!(decode_registered(b"\x89PNG").is_none());
+    }
+
+    #[test]
+    fn truncated_rle_cannot_open() {
+        let pal = [[0, 0, 0, 0], [0, 0, 255, 0], [0, 255, 0, 0], [255, 0, 0, 0]];
+        // no end-of-bitmap marker
+        let cut = [2, 3, 2, 0, 0, 0, 3, 1, 1, 2];
+        assert_eq!(decode_bmp(&hdr(4, 2, 8, 1, &pal, &cut)).unwrap_err().message, CANNOT_OPEN);
+        // absolute run of 3 whose padding byte is missing
+        let cut = [0, 3, 1, 2, 3];
+        assert_eq!(decode_bmp(&hdr(4, 1, 8, 1, &pal, &cut)).unwrap_err().message, CANNOT_OPEN);
+        // token cut in half
+        assert_eq!(decode_bmp(&hdr(4, 1, 8, 1, &pal, &[4])).unwrap_err().message, CANNOT_OPEN);
+        // padded and terminated: fine
+        let ok = [0, 3, 1, 2, 3, 0, 0, 1, 1, 0, 1];
+        assert!(decode_bmp(&hdr(4, 1, 8, 1, &pal, &ok)).is_ok());
+    }
+
+    #[test]
+    fn size_and_compression_messages() {
+        // oversize: not enough memory; tiny hostile header never allocates
+        assert_eq!(decode_bmp(&hdr(20000, 20000, 24, 0, &[], &[])).unwrap_err().message, NOT_ENOUGH_MEMORY);
+        assert_eq!(decode_bmp(&hdr(9999, 9999, 24, 0, &[], &[0; 8])).unwrap_err().message, CANNOT_OPEN);
+        assert_eq!(decode_bmp(&hdr(9999, 9999, 8, 1, &[], &[0; 8])).unwrap_err().message, CANNOT_OPEN);
+        // known compression on the wrong depth
+        assert_eq!(decode_bmp(&hdr(2, 2, 24, 1, &[], &[0; 16])).unwrap_err().message, NOT_ENOUGH_MEMORY);
     }
 
     #[test]

@@ -11,7 +11,8 @@
 //! back. Esc, or the other mouse button, cancels the stroke.
 
 use crate::features::mouse_colors::{cancel_stroke, paint_colour};
-use crate::raster::{in_bounds, line_points, snap_line_end};
+use crate::raster::shapes::path_points;
+use crate::raster::{in_bounds, snap_line_end};
 use crate::registry::Registry;
 use crate::state::State;
 use crate::tools::{PointerEvent, ToolHandler};
@@ -38,7 +39,7 @@ fn ensure_undo(st: &mut State, points: &[(i32, i32)]) {
 }
 
 fn paint_line(st: &mut State, a: (i32, i32), b: (i32, i32), c: Rgb) {
-    let pts = line_points(a, b);
+    let pts = path_points(a, b);
     ensure_undo(st, &pts);
     for (x, y) in pts {
         st.doc.put(x, y, c);
@@ -203,6 +204,26 @@ mod tests {
         assert_eq!(black(&st), 0);
         assert!(st.doc.undo.is_empty());
         assert!(!st.doc.dirty);
+    }
+
+    #[test]
+    fn exact_ties_go_toward_the_start_point() {
+        // The spec path rule: minor coordinate rounded, ties toward the start.
+        let mut st = state();
+        st.pointer(PointerKind::Press(Button::Left), at(0, 0), Mods::NONE).unwrap();
+        st.pointer(PointerKind::Release(Button::Left), at(4, 1), Mods::NONE).unwrap();
+        let mut got: Vec<(i32, i32)> = (0..32)
+            .flat_map(|y| (0..32).map(move |x| (x, y)))
+            .filter(|&(x, y)| st.doc.get(x, y) == Some(Rgb::K))
+            .collect();
+        got.sort();
+        assert_eq!(got, vec![(0, 0), (1, 0), (2, 0), (3, 1), (4, 1)]);
+
+        let mut st = state();
+        st.pointer(PointerKind::Press(Button::Left), at(0, 0), Mods::NONE).unwrap();
+        st.pointer(PointerKind::Release(Button::Left), at(2, 1), Mods::NONE).unwrap();
+        assert_eq!(st.doc.get(1, 0), Some(Rgb::K));
+        assert_eq!(st.doc.get(1, 1), Some(Rgb::W));
     }
 
     #[test]

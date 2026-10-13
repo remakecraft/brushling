@@ -194,7 +194,8 @@ fn listing(st: &State, path: &str) -> Option<Vec<MenuItem>> {
                 if !recent.is_empty() {
                     for (i, label) in recent.into_iter().enumerate() {
                         out.push(MenuItem {
-                            enabled: command_enabled(st, &join(path, &label)),
+                            // Recent entries are handled by `State::menu` itself, not registered.
+                            enabled: true,
                             access: char::from_digit(i as u32 + 1, 10),
                             label,
                             ..Default::default()
@@ -232,9 +233,25 @@ impl State {
             .ok_or_else(|| unknown(path))
     }
 
+    /// The menu title highlighted by a lone Alt press, if any.
+    pub fn menu_title_highlight(&self) -> Option<&str> {
+        self.menu_highlight.as_deref()
+    }
+
     /// Alt+letter menu navigation. Returns true when the key was consumed.
     pub fn menu_key(&mut self, key: Key, mods: Mods) -> HResult<bool> {
         let Some(open) = self.menu_open.clone() else {
+            // A lone Alt highlights the first title; Esc, or any other key,
+            // removes the highlight again (Esc is consumed by it).
+            let highlighted = self.menu_highlight.take().is_some();
+            match key {
+                Key::Alt => {
+                    self.menu_highlight = Some(BAR[0].label.to_owned());
+                    return Ok(true);
+                }
+                Key::Escape if highlighted => return Ok(true),
+                _ => {}
+            }
             if let (Key::Char(c), true, false) = (key, mods.alt, mods.ctrl) {
                 if let Some(title) = pick(self, "", c) {
                     self.menu_open = Some(title.label);
@@ -265,5 +282,26 @@ impl State {
             _ => self.menu_open = None,
         }
         Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::Settings;
+
+    fn state() -> State {
+        let dir = std::env::temp_dir().join(format!("brushling-menubar-{}", std::process::id()));
+        State::new(Settings::load(&dir), Services::default(), (1920, 1080)).unwrap()
+    }
+
+    #[test]
+    fn lone_alt_highlights_file_and_esc_clears_it() {
+        let mut st = state();
+        st.key(Key::Alt, Mods::NONE).unwrap();
+        assert_eq!(st.menu_title_highlight(), Some("File"));
+        assert!(st.menu_open.is_none());
+        st.key(Key::Escape, Mods::NONE).unwrap();
+        assert_eq!(st.menu_title_highlight(), None);
     }
 }

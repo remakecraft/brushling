@@ -2,7 +2,7 @@
 //! the pointer path; right-drag (colour eraser) replaces only pixels equal to
 //! the foreground colour. One press-to-release is one undo step.
 
-use crate::raster::line_points;
+use crate::raster::shapes::path_points;
 use crate::registry::Registry;
 use crate::state::State;
 use crate::tools::{PointerEvent, ToolHandler};
@@ -32,32 +32,32 @@ fn stamp(st: &mut State, p: (i32, i32), colour_erase: bool) {
 }
 
 fn stamp_path(st: &mut State, a: (i32, i32), b: (i32, i32), colour_erase: bool) {
-    for p in line_points(a, b) {
+    for p in path_points(a, b) {
         stamp(st, p, colour_erase);
     }
 }
 
 impl ToolHandler for Eraser {
     fn press(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
-        st.pencil_last = None;
+        st.eraser_last = None;
         let Some(p) = ev.image else { return Ok(()) };
         st.doc.push_undo();
         stamp(st, p, ev.button == Some(Button::Right));
-        st.pencil_last = Some(p);
+        st.eraser_last = Some(p);
         Ok(())
     }
 
     fn drag(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
-        let Some(last) = st.pencil_last else { return Ok(()) };
+        let Some(last) = st.eraser_last else { return Ok(()) };
         let Some(p) = ev.image else { return Ok(()) };
         stamp_path(st, last, p, ev.button == Some(Button::Right));
-        st.pencil_last = Some(p);
+        st.eraser_last = Some(p);
         Ok(())
     }
 
     fn release(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
         self.drag(st, ev)?;
-        st.pencil_last = None;
+        st.eraser_last = None;
         Ok(())
     }
 }

@@ -2,8 +2,6 @@
 //! width. The drag is a live preview drawn in the composite layer only; the
 //! release commits it to the document as one undo step. Shift snaps to 0/45/90 degrees.
 
-use std::cell::Cell;
-
 use crate::raster::shapes::thick_line;
 use crate::raster::snap_line_end;
 use crate::features::mouse_colors::paint_colour;
@@ -25,12 +23,6 @@ fn stamps(a: (i32, i32), b: (i32, i32), w: i32) -> Vec<(i32, i32)> {
     thick_line(a, b, w)
 }
 
-thread_local! {
-    /// Whether Shift was down at the latest pointer event of the gesture, so
-    /// the preview layer (which only sees `&State`) snaps like the commit.
-    static SHIFT: Cell<bool> = const { Cell::new(false) };
-}
-
 fn end_point(start: (i32, i32), end: (i32, i32), shift: bool) -> (i32, i32) {
     if shift {
         snap_line_end(start, end)
@@ -50,7 +42,7 @@ fn preview(st: &State, img: &mut Image) {
         return;
     }
     let Some(start) = h.start_image else { return };
-    let end = end_point(start, cur, SHIFT.with(Cell::get));
+    let end = end_point(start, cur, st.gesture_mods.shift);
     let c = paint_colour(st, Some(h.button));
     let w = st.options.line_width as i32;
     for (x, y) in stamps(start, end, w) {
@@ -61,13 +53,13 @@ fn preview(st: &State, img: &mut Image) {
 }
 
 impl ToolHandler for Line {
-    fn press(&self, _st: &mut State, ev: &PointerEvent) -> HResult<()> {
-        SHIFT.with(|s| s.set(ev.mods.shift));
+    fn press(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
+        st.gesture_mods = ev.mods;
         Ok(())
     }
 
-    fn drag(&self, _st: &mut State, ev: &PointerEvent) -> HResult<()> {
-        SHIFT.with(|s| s.set(ev.mods.shift));
+    fn drag(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
+        st.gesture_mods = ev.mods;
         Ok(())
     }
 

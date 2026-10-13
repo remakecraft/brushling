@@ -7,8 +7,6 @@
 //! (style 2) with the background; the right button swaps the two. Style 3
 //! paints the whole area in the outline colour.
 
-use std::cell::Cell;
-
 use crate::raster::rect_from_corners;
 use crate::raster::shapes::{shape_pixels, square_end, ShapeKind};
 use crate::registry::Registry;
@@ -26,12 +24,6 @@ pub fn register(r: &mut Registry) {
     r.tool(Tool::Ellipse, &ELLIPSE);
     r.tool(Tool::RoundedRectangle, &ROUNDED);
     r.composite_layer(preview);
-}
-
-thread_local! {
-    /// Shift state at the latest pointer event of the gesture, so the preview
-    /// layer (which only sees `&State`) constrains like the commit does.
-    static SHIFT: Cell<bool> = const { Cell::new(false) };
 }
 
 fn kind_of(tool: Tool) -> Option<ShapeKind> {
@@ -72,8 +64,11 @@ fn paint_list(st: &State, kind: ShapeKind, button: Button, a: (i32, i32), b: (i3
 fn preview(st: &State, img: &mut Image) {
     let Some(kind) = kind_of(st.tool) else { return };
     let (Some(h), Some(cur)) = (st.held, st.pointer_image) else { return };
+    if h.cancelled {
+        return;
+    }
     let Some(start) = h.start_image else { return };
-    for ((x, y), c) in paint_list(st, kind, h.button, start, cur, SHIFT.with(Cell::get)) {
+    for ((x, y), c) in paint_list(st, kind, h.button, start, cur, st.gesture_mods.shift) {
         if x >= 0 && y >= 0 && (x as u32) < img.width && (y as u32) < img.height {
             img.pixels[y as usize * img.width as usize + x as usize] = c;
         }
@@ -81,13 +76,13 @@ fn preview(st: &State, img: &mut Image) {
 }
 
 impl ToolHandler for ShapeTool {
-    fn press(&self, _st: &mut State, ev: &PointerEvent) -> HResult<()> {
-        SHIFT.with(|s| s.set(ev.mods.shift));
+    fn press(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
+        st.gesture_mods = ev.mods;
         Ok(())
     }
 
-    fn drag(&self, _st: &mut State, ev: &PointerEvent) -> HResult<()> {
-        SHIFT.with(|s| s.set(ev.mods.shift));
+    fn drag(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
+        st.gesture_mods = ev.mods;
         Ok(())
     }
 

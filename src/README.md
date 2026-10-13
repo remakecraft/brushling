@@ -8,7 +8,7 @@ where needed, adding fields to `State`.
 | Module | Purpose |
 |---|---|
 | `doc.rs` | `Document` (pixels, path, depth, palette, colour mode, dirty), clipped `put`, undo snapshots (`push_undo`) |
-| `raster.rs` | pure helpers: `line_points` (Bresenham), `rect_from_corners`, `normalize`, `clip_rect`, `in_bounds` |
+| `raster.rs` | pure helpers: `snap_line_end`, `rect_from_corners`, `normalize`, `clip_rect`, `in_bounds` |
 | `state.rs` | all mutable state: colours, tool, options, zoom, clock, rng, dialogs, settings |
 | `tools/mod.rs` | `ToolHandler` trait, pointer/key/clock routing, double-click detection, tool options |
 | `registry.rs` | `Registry`: tools, menu commands, shortcuts, pointer hooks, decoders, render layers |
