@@ -76,7 +76,7 @@ impl App {
     /// default-size image, or the file named by `args[0]`).
     pub fn start(opts: StartOptions) -> HResult<App> {
         let settings = Settings::load(&opts.config_dir);
-        let mut st = State::new(settings, opts.services, opts.screen)?;
+        let mut st = State::with_screens(settings, opts.services, opts.screen, &opts.extra_screens)?;
         if let Some(arg) = opts.args.first() {
             st.open_path(std::path::Path::new(arg))?;
         }

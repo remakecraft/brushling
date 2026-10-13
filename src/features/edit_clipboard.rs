@@ -152,6 +152,7 @@ fn grow_canvas(st: &mut State, w: u32, h: u32) {
     st.doc.pixels = pixels;
     st.doc.width = nw;
     st.doc.height = nh;
+    crate::features::ui_main_window::refresh_workspace(st);
 }
 
 /// Undo step plus the floating insert.
