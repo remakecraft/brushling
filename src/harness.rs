@@ -131,7 +131,7 @@ impl App {
 
     /// Click a tool box button.
     pub fn select_tool(&mut self, tool: Tool) -> HResult<()> {
-        self.st.select_tool(tool)
+        crate::features::tools_toolbox::click(&mut self.st, tool)
     }
 
     pub fn active_tool(&self) -> HResult<Tool> {
@@ -208,17 +208,17 @@ impl App {
 
     /// Window title text.
     pub fn title(&self) -> HResult<String> {
-        Err(HarnessError::Unbuilt("ui.main_window"))
+        Ok(crate::features::ui_main_window::title(&self.st))
     }
 
     /// Request a client-area size (subject to the minimum size).
     pub fn set_window_size(&mut self, w: u32, h: u32) -> HResult<()> {
-        let _ = (w, h);
-        Err(HarnessError::Unbuilt("ui.main_window"))
+        crate::features::ui_main_window::set_window_size(&mut self.st, w, h);
+        Ok(())
     }
 
     pub fn layout(&self) -> HResult<Layout> {
-        Err(HarnessError::Unbuilt("ui.main_window"))
+        Ok(crate::features::ui_main_window::layout(&self.st))
     }
 
     // ----- ui.menu_bar
@@ -288,24 +288,23 @@ impl App {
 
     /// The 16 buttons in row-major order.
     pub fn tool_buttons(&self) -> HResult<Vec<ToolButton>> {
-        Err(HarnessError::Unbuilt("tools.toolbox"))
+        Ok(crate::features::tools_toolbox::buttons(&self.st))
     }
 
     /// Rest the pointer on a tool button or menu item (or nothing).
     pub fn hover(&mut self, target: Hover) -> HResult<()> {
-        let _ = target;
-        Err(HarnessError::Unbuilt("tools.toolbox"))
+        crate::features::tools_toolbox::hover(&mut self.st, target)
     }
 
     /// The tooltip currently shown, if any.
     pub fn tooltip(&self) -> HResult<Option<String>> {
-        Err(HarnessError::Unbuilt("tools.toolbox"))
+        Ok(crate::features::tools_toolbox::tooltip(&self.st))
     }
 
     // ----- ui.status_bar
 
     pub fn status_bar(&self) -> HResult<StatusBar> {
-        Err(HarnessError::Unbuilt("ui.status_bar"))
+        Ok(crate::features::ui_status_bar::status_bar(&self.st))
     }
 
     // ----- colors.color_box

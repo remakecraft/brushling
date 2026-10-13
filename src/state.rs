@@ -127,6 +127,17 @@ pub struct State {
     /// A canvas resize-handle drag (live: the document already shows the
     /// size a release would keep). Only active while `held` is set.
     pub canvas_drag: Option<crate::features::canvas_resize_handle::CanvasDrag>,
+    // ----- ui.main_window / ui.status_bar / tools.toolbox
+    /// Requested client size of the main window (clamped to the minimum on read).
+    pub window: (u32, u32),
+    /// Where the pointer rests: a tool button, a highlighted menu item or nothing.
+    pub hover: Hover,
+    /// Virtual time at which `hover` last changed (tooltip delay).
+    pub hover_since: u64,
+    /// Latest pointer position in image coordinates (`None` off the canvas)
+    /// and its modifiers, for the status bar.
+    pub ptr_image: Option<(i32, i32)>,
+    pub ptr_mods: Mods,
 }
 
 impl State {
@@ -178,6 +189,11 @@ impl State {
             after_save: None,
             attr_draft: Default::default(),
             canvas_drag: None,
+            window: crate::features::ui_main_window::default_window(),
+            hover: Hover::Nothing,
+            hover_since: 0,
+            ptr_image: None,
+            ptr_mods: Mods::default(),
         })
     }
 
