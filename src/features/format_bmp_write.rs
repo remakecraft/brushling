@@ -117,8 +117,11 @@ pub(crate) fn encode_bmp_indexed(indices: &[u8], width: u32, height: u32, depth:
             out[bit / 8] |= v << (8 - depth as usize - bit % 8);
         }
     }
-    let mut out = header(width, height, depth, palette.len(), data.len());
-    for c in palette {
+    // The table always has 2^depth entries (unused ones black), and colours
+    // used says so (format.bmp_write B2, B3).
+    let entries = 1usize << depth;
+    let mut out = header(width, height, depth, entries, data.len());
+    for c in palette.iter().copied().chain(std::iter::repeat(Rgb::K)).take(entries) {
         out.extend_from_slice(&[c.b, c.g, c.r, 0]);
     }
     out.extend_from_slice(&data);
@@ -129,6 +132,23 @@ pub(crate) fn encode_bmp_indexed(indices: &[u8], width: u32, height: u32, depth:
 mod tests {
     use super::*;
     use crate::features::format_bmp_read::decode_bmp;
+
+    #[test]
+    fn short_palette_is_padded_to_full_table() {
+        let pal: Vec<Rgb> = (1..=5).map(|i| Rgb::new(i * 10, i, 255 - i)).collect();
+        let b = encode_bmp_indexed(&[0, 1, 2, 3, 4, 0, 1, 2], 4, 2, 8, &pal).unwrap();
+        let le32 = |o: usize| u32::from_le_bytes(b[o..o + 4].try_into().unwrap());
+        assert_eq!(le32(10), 54 + 4 * 256);
+        assert_eq!(le32(46), 256);
+        assert_eq!(b.len(), 54 + 4 * 256 + 4 * 2);
+        for (i, c) in pal.iter().enumerate() {
+            assert_eq!(&b[54 + 4 * i..54 + 4 * i + 4], &[c.b, c.g, c.r, 0]);
+        }
+        assert_eq!(&b[54 + 20..54 + 24], &[0, 0, 0, 0]);
+        // the first five entries survive a read
+        let d = decode_bmp(&b).unwrap();
+        assert_eq!(d.palette.unwrap()[..5], pal[..]);
+    }
 
     #[test]
     fn roundtrip_all_depths() {
