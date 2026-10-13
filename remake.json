@@ -1,0 +1,17 @@
+{
+  "app": "brushling",
+  "stack": "rust-egui",
+  "builders": 4,
+  "cheap": false,
+  "models": {
+    "planner": "opus",
+    "builder": "sonnet",
+    "reviewer": "opus"
+  },
+  "blocked": [],
+  "commands": {
+    "build": "cargo build --all-targets",
+    "testVisible": "node \"{plugin}/scripts/runners/nextest.mjs\" {suite} \"{report}\"",
+    "testSealed": "node \"{plugin}/scripts/runners/nextest.mjs\" {suite} \"{report}\""
+  }
+}
