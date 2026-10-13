@@ -12,6 +12,9 @@ pub fn register(r: &mut Registry) {
 
 /// File > Exit: the save-changes check, then [`exit`].
 fn exit_command(st: &mut State) -> HResult<()> {
+    // An active text frame is committed first, which dirties the document so
+    // the save-changes check sees the typed text.
+    crate::features::tool_text::commit_frame(st);
     guard(st, Pending::Exit)
 }
 
