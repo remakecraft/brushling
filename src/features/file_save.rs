@@ -108,7 +108,10 @@ fn warning_answered(st: &mut State, button: &str) -> HResult<()> {
     let pending = st.pending_save.take();
     match (button, pending) {
         ("OK", Some((path, depth))) => save_to(st, &path, depth).map(|_| ()),
-        _ => Ok(()),
+        _ => {
+            st.after_save = None;
+            Ok(())
+        }
     }
 }
 
@@ -126,6 +129,7 @@ pub(crate) fn save_to(st: &mut State, path: &Path, depth: u32) -> HResult<bool> 
         Some(p) => encode_bmp_indexed(&p.indices, doc.width, doc.height, depth, &p.palette)?,
     };
     if let Err(e) = write_atomically(path, &bytes) {
+        st.after_save = None;
         st.error_box(&format!("The file could not be saved: {e}"));
         return Ok(false);
     }
@@ -140,6 +144,8 @@ pub(crate) fn save_to(st: &mut State, path: &Path, depth: u32) -> HResult<bool> 
     doc.source_depth = depth;
     doc.path = Some(path.to_path_buf());
     doc.dirty = false;
+    crate::features::file_recent::add(st, path);
+    crate::features::file_save_changes_prompt::continue_after_save(st)?;
     Ok(true)
 }
 
@@ -199,7 +205,11 @@ fn handler(st: &mut State, od: &mut OpenDialog, action: DialogAction<'_>) -> HRe
             request_save(st, path, depth)?;
             Ok(Outcome::Close)
         }
-        DialogAction::Click(_) => Ok(Outcome::Close),
+        DialogAction::Click(_) => {
+            // A cancelled Save As aborts the action waiting for the save.
+            st.after_save = None;
+            Ok(Outcome::Close)
+        }
     }
 }
 

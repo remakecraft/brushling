@@ -99,6 +99,11 @@ pub struct State {
     pub pending_paste: Option<Image>,
     /// A Copy To waiting for the colour-loss warning: target, depth, image.
     pub pending_copy_to: Option<(std::path::PathBuf, u32, Image)>,
+    // ----- file.save_changes_prompt
+    /// The action waiting for the save-changes question to be answered.
+    pub pending_action: Option<crate::features::file_save_changes_prompt::Pending>,
+    /// The action to continue once the save started by the prompt succeeds.
+    pub after_save: Option<crate::features::file_save_changes_prompt::Pending>,
 }
 
 impl State {
@@ -137,6 +142,8 @@ impl State {
             clipboard: ClipboardContent::Empty,
             pending_paste: None,
             pending_copy_to: None,
+            pending_action: None,
+            after_save: None,
         })
     }
 
