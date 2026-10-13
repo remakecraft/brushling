@@ -90,7 +90,7 @@ impl State {
             ToolOption::Opaque(o) => self.options.opaque = o,
             ToolOption::EraserSize(v) if matches!(v, 4 | 6 | 8 | 10) => self.options.eraser_size = v,
             ToolOption::EraserSize(v) => return bad("eraser size", v),
-            ToolOption::MagnifierLevel(v) if matches!(v, 1 | 2 | 6 | 8) => self.zoom = v * 100,
+            ToolOption::MagnifierLevel(v) if matches!(v, 1 | 2 | 6 | 8) => crate::features::view_zoom::set_zoom(self, v * 100)?,
             ToolOption::MagnifierLevel(v) => return bad("magnifier level", v),
             ToolOption::BrushShape(v) if (1..=12).contains(&v) => self.options.brush_shape = v,
             ToolOption::BrushShape(v) => return bad("brush shape", v),

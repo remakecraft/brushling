@@ -135,10 +135,11 @@ fn layer(st: &State, img: &mut Image) {
     let (w, h) = (st.doc.width as i64, st.doc.height as i64);
     // 3x3 handles just outside the right and bottom edges.
     let blue = Rgb::new(0, 0, 128);
-    for (cx, cy) in [(w, h), (w, h / 2), (w / 2, h)] {
-        let (sx, sy) = to_screen(st, cx, cy);
-        let sx = if cx == w { sx + 2 } else { sx };
-        let sy = if cy == h { sy + 2 } else { sy };
+    // Handle centres in screen space: 2 px outside the edge, or halfway along
+    // the zoomed edge.
+    let (x0, y0) = to_screen(st, 0, 0);
+    let (sw, sh) = (w * handle_scale(st), h * handle_scale(st));
+    for (sx, sy) in [(x0 + sw + 2, y0 + sh + 2), (x0 + sw + 2, y0 + sh / 2), (x0 + sw / 2, y0 + sh + 2)] {
         for dy in -1..=1 {
             for dx in -1..=1 {
                 put(img, sx + dx, sy + dy, blue);
