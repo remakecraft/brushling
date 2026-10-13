@@ -65,6 +65,7 @@ pub fn register(r: &mut Registry) {
     r.command("View > Tool Box", |st| toggle(st, Panel::ToolBox));
     r.command("View > Color Box", |st| toggle(st, Panel::ColorBox));
     r.command("View > Status Bar", |st| toggle(st, Panel::StatusBar));
+    r.command("View > Text Toolbar", |st| toggle(st, Panel::TextToolbar));
     r.shortcut(Key::Char('t'), Mods::CTRL, "View > Tool Box");
     r.shortcut(Key::Char('l'), Mods::CTRL, "View > Color Box");
 }
