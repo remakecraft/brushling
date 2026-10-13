@@ -116,6 +116,11 @@ pub struct State {
     pub text_style: crate::features::tool_text::TextStyle,
     /// View > Text Toolbar check state (shown by default).
     pub text_toolbar: bool,
+    // ----- file.save_changes_prompt
+    /// The action waiting for the save-changes question to be answered.
+    pub pending_action: Option<crate::features::file_save_changes_prompt::Pending>,
+    /// The action to continue once the save started by the prompt succeeds.
+    pub after_save: Option<crate::features::file_save_changes_prompt::Pending>,
 }
 
 impl State {
@@ -163,6 +168,8 @@ impl State {
             text_drag: None,
             text_style: Default::default(),
             text_toolbar: true,
+            pending_action: None,
+            after_save: None,
         })
     }
 

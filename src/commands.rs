@@ -1,34 +1,28 @@
 //! Menu dispatch. Commands are looked up by their full menu path in the
-//! registry; this file registers the ones that belong to the shared core
-//! (File > New and File > Exit). Every other command is registered by the
-//! feature that owns it.
+//! registry; every command is registered by the feature that owns it. The
+//! recent-file entries of the File menu are dynamic and resolved here through
+//! `file_recent`.
 
 use crate::registry::{registry, Registry};
 use crate::state::State;
 use crate::types::*;
 
-pub fn register_core(r: &mut Registry) {
-    r.command("File > New", file_new);
-    r.command("File > Exit", file_exit);
-    r.shortcut(Key::Char('n'), Mods::CTRL, "File > New");
-}
-
-/// File > New: a clean untitled image of the default size. The save-changes
-/// prompt in front of it belongs to file.save_changes_prompt.
-fn file_new(st: &mut State) -> HResult<()> {
-    st.new_default_document()
-}
-
-/// File > Exit: persist the settings and mark the application as exited.
-fn file_exit(st: &mut State) -> HResult<()> {
-    st.exit_code = Some(0);
-    st.settings.save()
-}
+/// Commands that belong to no feature (none at present).
+pub fn register_core(_r: &mut Registry) {}
 
 impl State {
     /// Invoke a menu command by path. A disabled command does nothing; an
     /// unknown path is an error. Menus are unreachable behind a modal dialog.
     pub fn menu(&mut self, path: &str) -> HResult<()> {
+        if let Some(recent) = crate::features::file_recent::entry_path(self, path) {
+            if self.dialogs.is_empty() && self.exit_code.is_none() {
+                crate::features::file_save_changes_prompt::guard(
+                    self,
+                    crate::features::file_save_changes_prompt::Pending::Recent(recent),
+                )?;
+            }
+            return Ok(());
+        }
         let Some(cmd) = registry().command_for(path) else {
             return Err(HarnessError::Invalid(format!("unknown or unavailable menu command {path:?}")));
         };
