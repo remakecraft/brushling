@@ -314,12 +314,11 @@ impl App {
 
     /// The 28 swatches, index 0 = swatch 1.
     pub fn swatches(&self) -> HResult<Vec<Rgb>> {
-        Err(HarnessError::Unbuilt("colors.color_box"))
+        Ok(crate::features::color_box::swatches(&self.st))
     }
 
     /// Click swatch `n` (1..=28); `double` makes it a double-click.
     pub fn click_swatch(&mut self, n: u32, button: Button, double: bool) -> HResult<()> {
-        let _ = (n, button, double);
-        Err(HarnessError::Unbuilt("colors.color_box"))
+        crate::features::color_box::click_swatch(&mut self.st, n, button, double)
     }
 }
