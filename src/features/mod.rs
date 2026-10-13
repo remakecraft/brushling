@@ -7,6 +7,8 @@ pub mod color_box;
 pub mod eraser;
 pub mod fill;
 pub mod flip_rotate;
+pub mod format_bmp_read;
+pub mod format_bmp_write;
 pub mod invert;
 pub mod line;
 pub mod menu_bar;
@@ -21,6 +23,8 @@ pub fn register_all(r: &mut Registry) {
     eraser::register(r);
     fill::register(r);
     flip_rotate::register(r);
+    format_bmp_read::register(r);
+    format_bmp_write::register(r);
     invert::register(r);
     line::register(r);
     mouse_colors::register(r);
