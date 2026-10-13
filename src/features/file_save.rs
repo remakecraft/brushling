@@ -52,6 +52,7 @@ pub(crate) fn show_save_as(st: &mut State) -> HResult<()> {
         .and_then(|p| p.file_name())
         .map_or_else(|| "untitled".to_owned(), |n| n.to_string_lossy().into_owned());
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::FileSave,
         title: "Save As".to_owned(),
         text: String::new(),

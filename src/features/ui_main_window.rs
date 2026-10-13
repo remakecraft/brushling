@@ -121,6 +121,8 @@ pub fn layout(st: &State) -> Layout {
         workspace: (tool_w as i32, MENU_BAR_HEIGHT as i32, ww, wh),
         hscroll,
         vscroll,
+        window_x: st.window_pos.0,
+        window_y: st.window_pos.1,
     }
 }
 

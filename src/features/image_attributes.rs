@@ -136,6 +136,7 @@ fn open_attributes(st: &mut State) -> HResult<()> {
         ColorMode::Colors => "Colors",
     };
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::Attributes,
         title: "Attributes".to_owned(),
         text: String::new(),

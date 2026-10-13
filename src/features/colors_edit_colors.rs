@@ -77,6 +77,7 @@ pub fn open(st: &mut State) {
     }
     fields.push(OpenDialog::field(BASIC, ""));
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::EditColors,
         title: "Edit Colors".to_owned(),
         text: String::new(),
@@ -113,7 +114,7 @@ fn handle(st: &mut State, od: &mut OpenDialog, action: DialogAction<'_>) -> HRes
                 }
                 od.dialog.buttons.insert(1, ADD.to_owned());
                 // The dialog is open as wide as it gets: the button greys out.
-                od.disabled_buttons.push(EXPAND.to_owned());
+                od.dialog.disabled_buttons.push(EXPAND.to_owned());
             }
             Ok(Outcome::Keep)
         }

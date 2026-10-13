@@ -57,7 +57,7 @@ impl ToolHandler for Magnifier {
             set_zoom_at(st, 100, None)?;
         }
         st.mag_hover = None;
-        // The Text tool is unavailable above 100%.
+        // Text cannot be re-selected while zoomed in (`st.zoom > 100`).
         let back = if st.prev_tool == Tool::Text && st.zoom > 100 { Tool::Pencil } else { st.prev_tool };
         st.select_tool(back)
     }

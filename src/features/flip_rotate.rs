@@ -20,6 +20,7 @@ fn open_dialog(st: &mut State) -> HResult<()> {
     let mut angle = OpenDialog::field("Angle", ANGLES[0]);
     angle.enabled = false;
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::FlipRotate,
         title: "Flip and Rotate".to_owned(),
         text: String::new(),

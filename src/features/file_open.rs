@@ -27,6 +27,7 @@ fn open_command(st: &mut State) -> HResult<()> {
 /// Open the platform open-file dialog.
 pub(crate) fn show_open_dialog(st: &mut State) -> HResult<()> {
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::FileOpen,
         title: "Open".to_owned(),
         text: String::new(),
