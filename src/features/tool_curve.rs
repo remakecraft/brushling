@@ -10,7 +10,6 @@
 
 use crate::features::mouse_colors::paint_colour;
 use crate::raster::shapes::{path_points, stamp_square, thick_line};
-use crate::raster::snap_line_end;
 use crate::registry::Registry;
 use crate::state::State;
 use crate::tools::{PointerEvent, ToolHandler};
@@ -112,6 +111,12 @@ fn commit(st: &mut State) {
     }
 }
 
+/// Shift on the first edge: horizontal or vertical only, along the axis with
+/// the larger |delta| (ties go horizontal).
+fn axis_aligned(from: P, to: P) -> P {
+    if (to.0 - from.0).abs() >= (to.1 - from.1).abs() { (to.0, from.1) } else { (from.0, to.1) }
+}
+
 fn pointer_of(st: &State, ev: &PointerEvent) -> Option<P> {
     ev.image.or(st.pointer_image)
 }
@@ -121,7 +126,7 @@ fn follow(st: &mut State, ev: &PointerEvent) {
     let Some(p) = pointer_of(st, ev) else { return };
     let c = &mut st.curve;
     match c.stage {
-        Stage::Line => c.p3 = if ev.mods.shift { snap_line_end(c.p0, p) } else { p },
+        Stage::Line => c.p3 = if ev.mods.shift { axis_aligned(c.p0, p) } else { p },
         Stage::Bend1 => {
             c.c1 = p;
             c.c2 = p;
