@@ -1,0 +1,320 @@
+//! The headless application handle used by the GUI shell and by the tests.
+//!
+//! Every method below starts as a stub returning
+//! `Err(HarnessError::Unbuilt("<owning feature id>"))`. Builders replace the
+//! body (and add private state to [`App`]); signatures are frozen.
+//!
+//! # Events
+//! - `pointer(kind, pos, mods)` drives every canvas tool. "click P" is
+//!   `Press(Left)` + `Release(Left)` at P; "drag A->B" is a press at A, one
+//!   `Move` to B and a release at B. A `Move` with no button held only moves
+//!   the pointer (status bar position, magnifier rectangle, hover).
+//! - Two presses within 500 ms of virtual time and 4 screen pixels form a
+//!   double-click. Virtual time only advances through `advance(ms)`.
+//! - `key(key, mods)` is a full key press. While a modal dialog is open keys
+//!   go to the dialog (Esc = Cancel) and shortcuts are ignored.
+//!
+//! # Menus
+//! Menu paths join exact labels with `" > "`: `"File > Open..."`,
+//! `"View > Zoom > Large Size"`, `"Image > Flip/Rotate..."`,
+//! `"Colors > Edit Colors..."`, recent files `"File > 1 C:\t\a.bmp"`.
+//! `menu_items("")` lists the menu bar titles. Invoking an item behaves like
+//! clicking it (including opening its dialog).
+//!
+//! # Dialogs
+//! `dialog()` returns the topmost modal dialog. `dialog_set(field, value)`
+//! types into a text field or picks a choice by its label; `dialog_click`
+//! presses a button by label. Contracts (field names / buttons):
+//! - MessageBox: `title`, `text`, buttons e.g. `OK` | `Yes No Cancel` |
+//!   `OK Cancel`. Validation messages open as a MessageBox above their
+//!   dialog; after `OK` the dialog underneath is open again.
+//! - FileOpen: fields `File name` (full path), `Files of type`
+//!   (`Bitmap files (*.bmp;*.dib)` | `All files (*.*)`); buttons `Open`, `Cancel`.
+//! - FileSave: fields `File name` (full path or bare name), `Save as type`
+//!   (`Monochrome bitmap (1-bit)` | `16-color bitmap (4-bit)` |
+//!   `256-color bitmap (8-bit)` | `24-bit bitmap`); buttons `Save`, `Cancel`.
+//! - Print: buttons `OK`, `Cancel`.
+//! - PageSetup: fields `Paper` (`Letter`), `Orientation` (`Portrait` |
+//!   `Landscape`), `Left`, `Right`, `Top`, `Bottom` (inches, decimal text);
+//!   buttons `OK`, `Cancel`.
+//! - Attributes: fields `Width`, `Height` (integers in Pixels, two decimals
+//!   in Inches/Cm), `Units` (`Inches` | `Cm` | `Pixels`), `Colors`
+//!   (`Black and white` | `Colors`); buttons `OK`, `Cancel`, `Default`.
+//! - FlipRotate: fields `Action` (`Flip horizontal` | `Flip vertical` |
+//!   `Rotate by angle`), `Angle` (`90` | `180` | `270`); buttons `OK`, `Cancel`.
+//! - StretchSkew: fields `Stretch Horizontal`, `Stretch Vertical`,
+//!   `Skew Horizontal`, `Skew Vertical`; buttons `OK`, `Cancel`.
+//! - CustomZoom: field `Zoom` (`100%` | `200%` | `400%` | `600%` | `800%`);
+//!   buttons `OK`, `Cancel`.
+//! - EditColors: fields `Red`, `Green`, `Blue` (0-255), `Hue`, `Sat`, `Lum`
+//!   (0-240), `Custom 1` .. `Custom 16` (value `r,g,b`); buttons
+//!   `Define Custom Colors >>`, `Add to Custom Colors`, `OK`, `Cancel`.
+//! - About: `text` holds name, version and licence; button `OK`.
+//!
+//! # Direct state setters
+//! `new_document`, `set_pixel` and `set_colors` are harness conveniences:
+//! they create no undo step and do not set the dirty flag. `set_colors`
+//! otherwise behaves like choosing the colours in the colour box (an active
+//! text frame is recoloured).
+
+use crate::types::*;
+
+/// One running application instance with its replaceable platform services
+/// (clipboard, file dialogs, printer, mail, wallpaper, settings store).
+#[derive(Debug)]
+pub struct App {
+    _private: (),
+}
+
+impl App {
+    // ----- core.document: construction, pixels, events, menus, dialogs, clock
+
+    /// Start the application (startup behaviour of core.document: untitled
+    /// default-size image, or the file named by `args[0]`).
+    pub fn start(opts: StartOptions) -> HResult<App> {
+        let _ = opts;
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Replace the document with a clean, untitled `w` x `h` image filled
+    /// with `fill` (no prompt, history cleared, colours/tools unchanged).
+    pub fn new_document(&mut self, w: u32, h: u32, fill: Rgb) -> HResult<()> {
+        let _ = (w, h, fill);
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Set one committed document pixel directly.
+    pub fn set_pixel(&mut self, x: i32, y: i32, c: Rgb) -> HResult<()> {
+        let _ = (x, y, c);
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// One committed document pixel (excludes floating content and previews).
+    pub fn pixel(&self, x: i32, y: i32) -> HResult<Rgb> {
+        let _ = (x, y);
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// All committed document pixels.
+    pub fn pixels(&self) -> HResult<Image> {
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    pub fn document(&self) -> HResult<DocInfo> {
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Set foreground and background colours.
+    pub fn set_colors(&mut self, fg: Rgb, bg: Rgb) -> HResult<()> {
+        let _ = (fg, bg);
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// (foreground, background).
+    pub fn colors(&self) -> HResult<(Rgb, Rgb)> {
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Click a tool box button.
+    pub fn select_tool(&mut self, tool: Tool) -> HResult<()> {
+        let _ = tool;
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    pub fn active_tool(&self) -> HResult<Tool> {
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Click an option in the options box.
+    pub fn set_tool_option(&mut self, option: ToolOption) -> HResult<()> {
+        let _ = option;
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    pub fn tool_options(&self) -> HResult<ToolOptions> {
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// A pointer event (see module docs).
+    pub fn pointer(&mut self, kind: PointerKind, pos: Pos, mods: Mods) -> HResult<()> {
+        let _ = (kind, pos, mods);
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// A key press (see module docs).
+    pub fn key(&mut self, key: Key, mods: Mods) -> HResult<()> {
+        let _ = (key, mods);
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Advance the virtual clock (airbrush ticks, double-click and tooltip
+    /// timing).
+    pub fn advance(&mut self, ms: u64) -> HResult<()> {
+        let _ = ms;
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Seed the random generator (airbrush).
+    pub fn seed(&mut self, seed: u64) -> HResult<()> {
+        let _ = seed;
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Invoke a menu command by path (see module docs).
+    pub fn menu(&mut self, path: &str) -> HResult<()> {
+        let _ = path;
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// The topmost modal dialog, if any.
+    pub fn dialog(&self) -> HResult<Option<Dialog>> {
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Set a dialog field (text) or choice (by label).
+    pub fn dialog_set(&mut self, field: &str, value: &str) -> HResult<()> {
+        let _ = (field, value);
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Press a dialog button by label.
+    pub fn dialog_click(&mut self, button: &str) -> HResult<()> {
+        let _ = button;
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Calls recorded by the printer, mail and wallpaper services, in order.
+    pub fn platform_calls(&self) -> HResult<Vec<PlatformCall>> {
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// Render a surface to pixels.
+    pub fn render(&self, surface: Surface) -> HResult<Image> {
+        let _ = surface;
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    /// `Some(exit code)` once the application has exited.
+    pub fn exit_status(&self) -> HResult<Option<i32>> {
+        Err(HarnessError::Unbuilt("core.document"))
+    }
+
+    // ----- ui.main_window
+
+    /// Window title text.
+    pub fn title(&self) -> HResult<String> {
+        Err(HarnessError::Unbuilt("ui.main_window"))
+    }
+
+    /// Request a client-area size (subject to the minimum size).
+    pub fn set_window_size(&mut self, w: u32, h: u32) -> HResult<()> {
+        let _ = (w, h);
+        Err(HarnessError::Unbuilt("ui.main_window"))
+    }
+
+    pub fn layout(&self) -> HResult<Layout> {
+        Err(HarnessError::Unbuilt("ui.main_window"))
+    }
+
+    // ----- ui.menu_bar
+
+    /// Entries of the menu at `path` ("" = menu bar titles), separators
+    /// included.
+    pub fn menu_items(&self, path: &str) -> HResult<Vec<MenuItem>> {
+        let _ = path;
+        Err(HarnessError::Unbuilt("ui.menu_bar"))
+    }
+
+    /// One entry by full path.
+    pub fn menu_item(&self, path: &str) -> HResult<MenuItem> {
+        let _ = path;
+        Err(HarnessError::Unbuilt("ui.menu_bar"))
+    }
+
+    // ----- view.*
+
+    /// Current zoom in percent.
+    pub fn zoom(&self) -> HResult<u32> {
+        Err(HarnessError::Unbuilt("view.zoom"))
+    }
+
+    pub fn view_mode(&self) -> HResult<ViewMode> {
+        Err(HarnessError::Unbuilt("view.view_bitmap"))
+    }
+
+    pub fn panel(&self, panel: Panel) -> HResult<PanelState> {
+        let _ = panel;
+        Err(HarnessError::Unbuilt("view.panels"))
+    }
+
+    /// Drag a panel to float at a screen position (`Some`) or back to its
+    /// docked place (`None`).
+    pub fn place_panel(&mut self, panel: Panel, at: Option<(i32, i32)>) -> HResult<()> {
+        let _ = (panel, at);
+        Err(HarnessError::Unbuilt("view.panels"))
+    }
+
+    /// Press a panel's or secondary window's close button.
+    pub fn close_panel(&mut self, panel: Panel) -> HResult<()> {
+        let _ = panel;
+        Err(HarnessError::Unbuilt("view.panels"))
+    }
+
+    // ----- selection / text / clipboard
+
+    pub fn selection(&self) -> HResult<Option<Selection>> {
+        Err(HarnessError::Unbuilt("tool.select"))
+    }
+
+    pub fn text_frame(&self) -> HResult<Option<TextFrame>> {
+        Err(HarnessError::Unbuilt("tool.text"))
+    }
+
+    /// Current system clipboard content.
+    pub fn clipboard(&self) -> HResult<ClipboardContent> {
+        Err(HarnessError::Unbuilt("edit.clipboard"))
+    }
+
+    /// Place content on the system clipboard as another program would.
+    pub fn set_clipboard(&mut self, content: ClipboardContent) -> HResult<()> {
+        let _ = content;
+        Err(HarnessError::Unbuilt("edit.clipboard"))
+    }
+
+    // ----- tools.toolbox
+
+    /// The 16 buttons in row-major order.
+    pub fn tool_buttons(&self) -> HResult<Vec<ToolButton>> {
+        Err(HarnessError::Unbuilt("tools.toolbox"))
+    }
+
+    /// Rest the pointer on a tool button or menu item (or nothing).
+    pub fn hover(&mut self, target: Hover) -> HResult<()> {
+        let _ = target;
+        Err(HarnessError::Unbuilt("tools.toolbox"))
+    }
+
+    /// The tooltip currently shown, if any.
+    pub fn tooltip(&self) -> HResult<Option<String>> {
+        Err(HarnessError::Unbuilt("tools.toolbox"))
+    }
+
+    // ----- ui.status_bar
+
+    pub fn status_bar(&self) -> HResult<StatusBar> {
+        Err(HarnessError::Unbuilt("ui.status_bar"))
+    }
+
+    // ----- colors.color_box
+
+    /// The 28 swatches, index 0 = swatch 1.
+    pub fn swatches(&self) -> HResult<Vec<Rgb>> {
+        Err(HarnessError::Unbuilt("colors.color_box"))
+    }
+
+    /// Click swatch `n` (1..=28); `double` makes it a double-click.
+    pub fn click_swatch(&mut self, n: u32, button: Button, double: bool) -> HResult<()> {
+        let _ = (n, button, double);
+        Err(HarnessError::Unbuilt("colors.color_box"))
+    }
+}

@@ -1,0 +1,13 @@
+[package]
+name = "brushling"
+version = "0.1.0"
+edition = "2021"
+description = "Brushling: a single-document raster paint program (clean-room remake)"
+license = "MIT"
+
+[lib]
+name = "brushling"
+path = "src/lib.rs"
+
+[dependencies]
+eframe = "0.36"
