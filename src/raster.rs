@@ -29,38 +29,6 @@ pub fn clip_rect(r: Rect, w: u32, h: u32) -> Option<Rect> {
     (c.x0 <= c.x1 && c.y0 <= c.y1).then_some(c)
 }
 
-/// Every pixel of the 1-pixel Bresenham line from `a` to `b`, both ends
-/// included, in drawing order. Points may lie outside the canvas; callers
-/// clip when placing (see `Document::put`). The line is produced from `a`
-/// towards `b`, so a feature that needs a symmetric result orders its end
-/// points itself.
-pub fn line_points(a: (i32, i32), b: (i32, i32)) -> Vec<(i32, i32)> {
-    let (mut x, mut y) = (a.0 as i64, a.1 as i64);
-    let (x1, y1) = (b.0 as i64, b.1 as i64);
-    let dx = (x1 - x).abs();
-    let dy = -(y1 - y).abs();
-    let sx = if x < x1 { 1 } else { -1 };
-    let sy = if y < y1 { 1 } else { -1 };
-    let mut err = dx + dy;
-    let mut out = Vec::with_capacity((dx.max(-dy) + 1) as usize);
-    loop {
-        out.push((x as i32, y as i32));
-        if x == x1 && y == y1 {
-            break;
-        }
-        let e2 = 2 * err;
-        if e2 >= dy {
-            err += dy;
-            x += sx;
-        }
-        if e2 <= dx {
-            err += dx;
-            y += sy;
-        }
-    }
-    out
-}
-
 /// End point of a Shift-constrained line from `start` towards `end`
 /// (0/45/90 degree snap rule of tool.line, shared by Pencil and Line): if
 /// |dy| < 0.4142 |dx| the line is horizontal, else if |dx| < 0.4142 |dy|
@@ -83,22 +51,6 @@ pub fn snap_line_end(start: (i32, i32), end: (i32, i32)) -> (i32, i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn line_includes_both_ends_and_is_connected() {
-        let p = line_points((0, 0), (5, 2));
-        assert_eq!(p.first(), Some(&(0, 0)));
-        assert_eq!(p.last(), Some(&(5, 2)));
-        assert_eq!(p.len(), 6);
-        for w in p.windows(2) {
-            assert!((w[1].0 - w[0].0).abs() <= 1 && (w[1].1 - w[0].1).abs() <= 1);
-        }
-    }
-
-    #[test]
-    fn single_point_line() {
-        assert_eq!(line_points((3, 3), (3, 3)), vec![(3, 3)]);
-    }
 
     #[test]
     fn clip_discards_outside() {

@@ -4,7 +4,8 @@
 //! merge into the image). Making a selection changes no pixels and pushes
 //! no undo step. The shared model lives in `selection.rs`.
 
-use crate::raster::{line_points, rect_from_corners};
+use crate::raster::shapes::path_points;
+use crate::raster::rect_from_corners;
 use crate::registry::Registry;
 use crate::selection::{Sel, SelDrag};
 use crate::state::State;
@@ -91,7 +92,7 @@ impl ToolHandler for SelectTool {
             d.moved = true;
             if d.freeform {
                 let last = *d.path.last().unwrap_or(&d.start);
-                d.path.extend(line_points(last, p).into_iter().skip(1));
+                d.path.extend(path_points(last, p).into_iter().skip(1));
             }
             d.cur = p;
         }
@@ -105,7 +106,7 @@ impl ToolHandler for SelectTool {
         if let Some(p) = ev.image.map(|p| clamp(st, p)) {
             if d.freeform {
                 let last = *d.path.last().unwrap_or(&d.start);
-                d.path.extend(line_points(last, p).into_iter().skip(1));
+                d.path.extend(path_points(last, p).into_iter().skip(1));
             }
             d.cur = p;
         }
@@ -140,7 +141,7 @@ mod tests {
     #[test]
     fn square_path_fills_interior() {
         let corners = [(2, 2), (6, 2), (6, 6), (2, 6), (2, 2)];
-        let path: Vec<(i32, i32)> = corners.windows(2).flat_map(|w| line_points(w[0], w[1])).collect();
+        let path: Vec<(i32, i32)> = corners.windows(2).flat_map(|w| path_points(w[0], w[1])).collect();
         let s = freeform_selection(&path).unwrap();
         assert_eq!(s.bounds, Rect::new(2, 2, 6, 6));
         assert!(s.mask.iter().all(|m| *m));
