@@ -68,6 +68,9 @@ pub struct State {
     /// Open modal dialogs, bottom first; the last one is topmost.
     pub dialogs: Vec<OpenDialog>,
     pub exit_code: Option<i32>,
+    // ----- tool.pencil (per-gesture data)
+    pub pencil_last: Option<(i32, i32)>,
+    pub pencil_base: Option<Vec<Rgb>>,
 }
 
 impl State {
@@ -93,6 +96,8 @@ impl State {
             pointer_image: None,
             dialogs: Vec::new(),
             exit_code: None,
+            pencil_last: None,
+            pencil_base: None,
         })
     }
 
