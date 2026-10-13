@@ -72,8 +72,10 @@ impl State {
         if let Some(h) = registry().tool_handler(self.tool) {
             h.deactivate(self)?;
         }
+        self.prev_tool = self.tool;
         self.tool = tool;
         self.held = None;
+        self.stroke_base = None;
         if let Some(h) = registry().tool_handler(tool) {
             h.activate(self)?;
         }
@@ -114,12 +116,17 @@ impl State {
         let mut ev = PointerEvent { pos, image, button: None, mods, double_click: false };
         match kind {
             PointerKind::Press(b) => {
-                if self.held.is_some() {
-                    return Ok(()); // a second button while one is held is ignored
+                if let Some(h) = self.held {
+                    // A second button while one is held never reaches the
+                    // tool; if it interrupts a stroke it cancels the stroke.
+                    if h.button != b && !h.cancelled {
+                        crate::features::mouse_colors::cancel_stroke(self);
+                    }
+                    return Ok(());
                 }
                 ev.button = Some(b);
                 ev.double_click = self.register_press(pos, b);
-                self.held = Some(Held { button: b, start: pos, start_image: image, mods });
+                self.held = Some(Held { button: b, start: pos, start_image: image, mods, cancelled: false });
             }
             PointerKind::Move => ev.button = self.held.map(|h| h.button),
             PointerKind::Release(b) => {
@@ -130,6 +137,13 @@ impl State {
             }
         }
 
+        if self.held.is_some_and(|h| h.cancelled) {
+            // Cancelled stroke: only the release (which ends the gesture) matters.
+            if matches!(kind, PointerKind::Release(_)) {
+                self.held = None;
+            }
+            return Ok(());
+        }
         let hooks = registry().pointer_hooks();
         for hook in hooks {
             if hook(self, &ev)? {
@@ -138,6 +152,9 @@ impl State {
                 }
                 return Ok(());
             }
+        }
+        if matches!(kind, PointerKind::Press(_)) {
+            crate::features::mouse_colors::begin_stroke(self);
         }
         let handler = registry().tool_handler(self.tool);
         if let Some(h) = handler {
@@ -148,12 +165,14 @@ impl State {
                 PointerKind::Release(_) => {
                     let r = h.release(self, &ev);
                     self.held = None;
+                    self.stroke_base = None;
                     return r;
                 }
             }
         }
         if matches!(kind, PointerKind::Release(_)) {
             self.held = None;
+            self.stroke_base = None;
         }
         Ok(())
     }

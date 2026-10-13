@@ -3,6 +3,7 @@
 //!
 //! Flood fill over the 4-connected region of exactly the clicked colour.
 
+use crate::features::mouse_colors::paint_colour;
 use crate::registry::Registry;
 use crate::state::State;
 use crate::tools::{PointerEvent, ToolHandler};
@@ -32,7 +33,7 @@ impl ToolHandler for Fill {
     fn press(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
         let Some((x, y)) = ev.image else { return Ok(()) };
         let Some(target) = st.doc.get(x, y) else { return Ok(()) };
-        let chosen = if ev.button == Some(Button::Right) { st.bg } else { st.fg };
+        let chosen = paint_colour(st, ev.button);
         let paint = snap(st.doc.palette.as_deref(), chosen);
         if paint == target {
             return Ok(());

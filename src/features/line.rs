@@ -5,6 +5,8 @@
 use std::cell::Cell;
 
 use crate::raster::shapes::thick_line;
+use crate::raster::snap_line_end;
+use crate::features::mouse_colors::paint_colour;
 use crate::registry::Registry;
 use crate::state::State;
 use crate::tools::{PointerEvent, ToolHandler};
@@ -18,22 +20,6 @@ pub fn register(r: &mut Registry) {
     r.composite_layer(preview);
 }
 
-/// End point of a Shift-constrained line from `start` towards `end`.
-fn snap(start: (i32, i32), end: (i32, i32)) -> (i32, i32) {
-    const T: f64 = 0.4142;
-    let dx = end.0 as i64 - start.0 as i64;
-    let dy = end.1 as i64 - start.1 as i64;
-    let (ax, ay) = (dx.abs(), dy.abs());
-    if (ay as f64) < T * ax as f64 {
-        (end.0, start.1)
-    } else if (ax as f64) < T * ay as f64 {
-        (start.0, end.1)
-    } else {
-        let m = ax.min(ay);
-        ((start.0 as i64 + dx.signum() * m) as i32, (start.1 as i64 + dy.signum() * m) as i32)
-    }
-}
-
 /// Every pixel of the width-`w` line from `a` to `b` (spec path rule, square stamp).
 fn stamps(a: (i32, i32), b: (i32, i32), w: i32) -> Vec<(i32, i32)> {
     thick_line(a, b, w)
@@ -45,17 +31,9 @@ thread_local! {
     static SHIFT: Cell<bool> = const { Cell::new(false) };
 }
 
-fn colour(st: &State, button: Option<Button>) -> Rgb {
-    if button == Some(Button::Right) {
-        st.bg
-    } else {
-        st.fg
-    }
-}
-
 fn end_point(start: (i32, i32), end: (i32, i32), shift: bool) -> (i32, i32) {
     if shift {
-        snap(start, end)
+        snap_line_end(start, end)
     } else {
         end
     }
@@ -68,9 +46,12 @@ fn preview(st: &State, img: &mut Image) {
         return;
     }
     let (Some(h), Some(cur)) = (st.held, st.pointer_image) else { return };
+    if h.cancelled {
+        return;
+    }
     let Some(start) = h.start_image else { return };
     let end = end_point(start, cur, SHIFT.with(Cell::get));
-    let c = colour(st, Some(h.button));
+    let c = paint_colour(st, Some(h.button));
     let w = st.options.line_width as i32;
     for (x, y) in stamps(start, end, w) {
         if x >= 0 && y >= 0 && (x as u32) < img.width && (y as u32) < img.height {
@@ -94,7 +75,7 @@ impl ToolHandler for Line {
         let Some(start) = st.held.and_then(|h| h.start_image) else { return Ok(()) };
         let Some(cur) = ev.image.or(st.pointer_image) else { return Ok(()) };
         let end = end_point(start, cur, ev.mods.shift);
-        let c = colour(st, ev.button);
+        let c = paint_colour(st, ev.button);
         let w = st.options.line_width as i32;
         st.doc.push_undo();
         for (x, y) in stamps(start, end, w) {
