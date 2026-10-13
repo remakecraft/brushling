@@ -72,6 +72,9 @@ fn paint_list(st: &State, kind: ShapeKind, button: Button, a: (i32, i32), b: (i3
 fn preview(st: &State, img: &mut Image) {
     let Some(kind) = kind_of(st.tool) else { return };
     let (Some(h), Some(cur)) = (st.held, st.pointer_image) else { return };
+    if h.cancelled {
+        return;
+    }
     let Some(start) = h.start_image else { return };
     for ((x, y), c) in paint_list(st, kind, h.button, start, cur, SHIFT.with(Cell::get)) {
         if x >= 0 && y >= 0 && (x as u32) < img.width && (y as u32) < img.height {

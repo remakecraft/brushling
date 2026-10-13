@@ -246,7 +246,9 @@ impl App {
     }
 
     pub fn panel(&self, panel: Panel) -> HResult<PanelState> {
-        let _ = panel;
+        if panel == Panel::Help {
+            return Ok(PanelState { visible: crate::features::help_help_about::help_visible(&self.st), floating_at: None });
+        }
         Err(HarnessError::Unbuilt("view.panels"))
     }
 
@@ -259,7 +261,10 @@ impl App {
 
     /// Press a panel's or secondary window's close button.
     pub fn close_panel(&mut self, panel: Panel) -> HResult<()> {
-        let _ = panel;
+        if panel == Panel::Help {
+            crate::features::help_help_about::close_help(&mut self.st);
+            return Ok(());
+        }
         Err(HarnessError::Unbuilt("view.panels"))
     }
 

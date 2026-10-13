@@ -166,7 +166,7 @@ fn separator() -> MenuItem {
 }
 
 fn command_enabled(st: &State, path: &str) -> bool {
-    registry().command_for(path).and_then(|c| c.enabled).is_none_or(|f| f(st))
+    crate::features::ui_menu_enable_state::enabled(st, path)
 }
 
 fn build(st: &State, parent: &str, e: &Entry) -> MenuItem {
@@ -194,7 +194,7 @@ fn listing(st: &State, path: &str) -> Option<Vec<MenuItem>> {
                 if !recent.is_empty() {
                     for (i, label) in recent.into_iter().enumerate() {
                         out.push(MenuItem {
-                            enabled: command_enabled(st, &join(path, &label)),
+                            enabled: true,
                             access: char::from_digit(i as u32 + 1, 10),
                             label,
                             ..Default::default()
