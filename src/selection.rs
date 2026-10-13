@@ -117,6 +117,7 @@ impl State {
         let wanted = snap.sel.take();
         let saved = self.sel.clone();
         let mut current = self.doc.restore(snap);
+        crate::features::ui_main_window::refresh_workspace(self);
         if wanted.is_some() {
             current.sel = Some(saved);
         }
@@ -137,7 +138,7 @@ impl State {
     /// Does not push an undo step: the caller pushes one first. No-op when
     /// already floating or when nothing is selected.
     pub fn lift_selection(&mut self, clear_source: bool) {
-        let bg = self.bg;
+        let bg = self.bg_snapped();
         let Some(sel) = self.sel.as_mut() else { return };
         if sel.floating.is_some() {
             return;
@@ -168,7 +169,7 @@ impl State {
     /// mode, but background-coloured pixels are skipped in transparent mode
     /// (selection.transparency). Text frames use the same rule.
     pub fn draws_floating(&self, c: Rgb) -> bool {
-        self.options.opaque || c != self.bg
+        self.options.opaque || c != self.bg_snapped()
     }
 
     /// Write the floating pixels of the masked area into the image where they
@@ -177,7 +178,7 @@ impl State {
     pub fn stamp_selection(&mut self) {
         let Some(sel) = self.sel.as_ref() else { return };
         let Some(px) = sel.floating.as_ref() else { return };
-        let (opaque, bg) = (self.options.opaque, self.bg);
+        let (opaque, bg) = (self.options.opaque, self.bg_snapped());
         let b = sel.bounds;
         let w = b.width() as usize;
         for y in b.y0..=b.y1 {

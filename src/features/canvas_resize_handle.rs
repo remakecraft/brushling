@@ -94,9 +94,10 @@ fn apply(st: &mut State, (w, h): (u32, u32)) {
         return;
     }
     st.doc.push_undo();
-    st.doc.pixels = resized_pixels(&st.doc.pixels, st.doc.width, st.doc.height, w, h, st.bg);
+    st.doc.pixels = resized_pixels(&st.doc.pixels, st.doc.width, st.doc.height, w, h, st.bg_snapped());
     st.doc.width = w;
     st.doc.height = h;
+    crate::features::ui_main_window::refresh_workspace(st);
 }
 
 // ----- workspace drawing
@@ -155,4 +156,39 @@ pub fn cancel_drag(st: &mut State) -> bool {
         return false;
     }
     st.canvas_drag.take().is_some()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::Settings;
+
+    #[test]
+    fn growing_a_palette_image_fills_with_the_snapped_background() {
+        let dir = std::env::temp_dir().join(format!("brushling-resize-{}", std::process::id()));
+        let mut st = State::new(Settings::load(&dir), Services::default(), (1920, 1080)).unwrap();
+        st.doc = crate::doc::Document::new(2, 2, Rgb::W).unwrap();
+        st.doc.palette = Some(vec![Rgb::K, Rgb::W]);
+        st.bg = Rgb::new(250, 250, 250);
+        apply(&mut st, (3, 2));
+        assert_eq!(st.doc.get(2, 0), Some(Rgb::W));
+        st.bg = Rgb::new(5, 5, 5);
+        apply(&mut st, (4, 2));
+        assert_eq!(st.doc.get(3, 1), Some(Rgb::K));
+        // Existing pixels are untouched.
+        assert_eq!(st.doc.get(0, 0), Some(Rgb::W));
+    }
+
+    #[test]
+    fn workspace_follows_the_canvas_size() {
+        let dir = std::env::temp_dir().join(format!("brushling-resize-ws-{}", std::process::id()));
+        let mut st = State::new(Settings::load(&dir), Services::default(), (1920, 1080)).unwrap();
+        st.doc = crate::doc::Document::new(10, 10, Rgb::W).unwrap();
+        crate::features::ui_main_window::refresh_workspace(&mut st);
+        let before = st.workspace_size;
+        apply(&mut st, (5000, 5000));
+        assert!(st.workspace_size.0 < before.0 && st.workspace_size.1 < before.1);
+        st.step_history(true);
+        assert_eq!(st.workspace_size, before);
+    }
 }

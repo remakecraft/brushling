@@ -12,14 +12,34 @@ pub fn register(r: &mut Registry) {
 }
 
 fn clear_image(st: &mut State) -> HResult<()> {
+    // One undo step that remembers the selection, so Undo brings it back.
+    st.push_undo_sel();
     st.discard_selection();
-    st.doc.push_undo();
     let bg = st.bg;
     for y in 0..st.doc.height as i32 {
         for x in 0..st.doc.width as i32 {
-            // `put` applies the colour-mode and palette snapping rules.
+            // `paint` applies the colour-mode and palette snapping rules.
             st.doc.paint(x, y, bg);
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::Settings;
+
+    #[test]
+    fn undo_brings_the_dropped_selection_back() {
+        let dir = std::env::temp_dir().join(format!("brushling-clear-{}", std::process::id()));
+        let mut st = State::new(Settings::load(&dir), Services::default(), (1920, 1080)).unwrap();
+        let b = Rect::new(1, 1, 2, 2);
+        st.sel = Some(crate::selection::Sel { bounds: b, mask: vec![true; 4], floating: None, origin: b });
+        let sel = st.sel.clone();
+        clear_image(&mut st).unwrap();
+        assert!(st.sel.is_none());
+        st.step_history(true);
+        assert_eq!(st.sel, sel);
+    }
 }

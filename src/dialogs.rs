@@ -37,11 +37,13 @@ pub struct OpenDialog {
     pub handler: DialogFn,
     /// Only used by [`message_box_handler`].
     pub on_button: Option<MessageFn>,
+    /// Buttons that are shown but greyed out; pressing one is rejected.
+    pub disabled_buttons: Vec<String>,
 }
 
 impl OpenDialog {
     pub fn new(dialog: Dialog, handler: DialogFn) -> OpenDialog {
-        OpenDialog { dialog, handler, on_button: None }
+        OpenDialog { dialog, handler, on_button: None, disabled_buttons: Vec::new() }
     }
 
     /// Convenience constructor for a dialog with text fields.
@@ -98,7 +100,7 @@ impl State {
             buttons: buttons.iter().map(|b| (*b).to_owned()).collect(),
             fields: Vec::new(),
         };
-        self.open_dialog(OpenDialog { dialog, handler: message_box_handler, on_button });
+        self.open_dialog(OpenDialog { dialog, handler: message_box_handler, on_button, disabled_buttons: Vec::new() });
     }
 
     /// An error box titled "Brushling" with a single OK button.
@@ -123,6 +125,9 @@ impl State {
                 "dialog {:?} has no button {button:?}",
                 top.dialog.title
             )));
+        }
+        if top.disabled_buttons.iter().any(|b| b == button) {
+            return Err(HarnessError::Invalid(format!("button {button:?} is disabled")));
         }
         self.run_dialog(DialogAction::Click(button))
     }

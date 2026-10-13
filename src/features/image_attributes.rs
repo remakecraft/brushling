@@ -4,7 +4,7 @@
 //! `Colors`; buttons OK, Cancel, Default.
 
 use crate::dialogs::{store_field, DialogAction, OpenDialog, Outcome};
-use crate::doc::{to_black_or_white, MAX_DIM};
+use crate::doc::MAX_DIM;
 use crate::registry::Registry;
 use crate::state::State;
 use crate::types::*;
@@ -236,11 +236,12 @@ fn apply(st: &mut State, w: u32, h: u32, mode: ColorMode) -> HResult<()> {
     }
     st.end_selection();
     st.doc.push_undo();
-    let fill = if mode == ColorMode::BlackAndWhite { to_black_or_white(st.bg) } else { st.bg };
+    let fill = crate::doc::snap_colour(mode, st.doc.palette.as_deref(), st.bg);
     if size_changed {
         st.doc.pixels = resized_pixels(&st.doc.pixels, st.doc.width, st.doc.height, w, h, fill);
         st.doc.width = w;
         st.doc.height = h;
+        crate::features::ui_main_window::refresh_workspace(st);
     }
     st.doc.color_mode = mode;
     if mode == ColorMode::BlackAndWhite {

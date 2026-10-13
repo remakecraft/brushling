@@ -3,12 +3,9 @@
 //! recent-file entries of the File menu are dynamic and resolved here through
 //! `file_recent`.
 
-use crate::registry::{registry, Registry};
+use crate::registry::registry;
 use crate::state::State;
 use crate::types::*;
-
-/// Commands that belong to no feature (none at present).
-pub fn register_core(_r: &mut Registry) {}
 
 impl State {
     /// Invoke a menu command by path. A disabled command does nothing; an

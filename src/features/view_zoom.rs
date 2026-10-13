@@ -55,7 +55,8 @@ pub fn set_zoom_at(st: &mut State, zoom: u32, scroll: Option<(i32, i32)>) -> HRe
         st.scroll.0.div_euclid(old).saturating_mul(new),
         st.scroll.1.div_euclid(old).saturating_mul(new),
     ));
-    clamp_scroll(st);
+    // The scroll bars (and so the workspace) depend on the zoom.
+    crate::features::ui_main_window::refresh_workspace(st);
     st.mag_hover = None;
     crate::features::view_thumbnail::on_zoom_changed(st);
     crate::features::tool_text::on_zoom_changed(st)
@@ -136,21 +137,32 @@ mod tests {
 
     fn state() -> State {
         let dir = std::env::temp_dir().join(format!("brushling-zoom-{}", std::process::id()));
-        let mut st = State::new(Settings::load(&dir), Services::default(), (1920, 1080)).unwrap();
-        st.workspace_size = (100, 100);
-        st
+        State::new(Settings::load(&dir), Services::default(), (1920, 1080)).unwrap()
     }
 
     #[test]
     fn zoom_keeps_top_left_pixel_and_clamps() {
         let mut st = state();
-        st.doc = crate::doc::Document::new(100, 100, Rgb::W).unwrap();
+        st.doc = crate::doc::Document::new(1000, 1000, Rgb::W).unwrap();
         set_zoom(&mut st, 400).unwrap();
         st.scroll = (40, 80);
         set_zoom(&mut st, 800).unwrap();
         assert_eq!(st.scroll, (80, 160));
         set_zoom(&mut st, 100).unwrap();
-        assert_eq!(st.scroll, (8, 8));
+        // Back at 100% the canvas is smaller than at 800%: the offset keeps the
+        // same top-left pixel and stays inside the (now larger) workspace range.
+        assert_eq!(st.scroll, (10, 20));
+    }
+
+    #[test]
+    fn workspace_shrinks_when_zoom_adds_scroll_bars() {
+        let mut st = state();
+        st.doc = crate::doc::Document::new(100, 100, Rgb::W).unwrap();
+        crate::features::ui_main_window::refresh_workspace(&mut st);
+        let small = st.workspace_size;
+        set_zoom(&mut st, 800).unwrap();
+        assert!(st.workspace_size.0 < small.0 && st.workspace_size.1 < small.1);
+        assert_eq!(st.workspace_size, (crate::features::ui_main_window::layout(&st).workspace.2, crate::features::ui_main_window::layout(&st).workspace.3));
     }
 
     #[test]
