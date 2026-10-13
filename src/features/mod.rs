@@ -26,6 +26,7 @@ pub mod flip_rotate;
 pub mod format_bmp_read;
 pub mod format_bmp_write;
 pub mod format_color_reduction;
+pub mod help_content;
 pub mod help_help_about;
 pub mod image_attributes;
 pub mod image_clear_image;

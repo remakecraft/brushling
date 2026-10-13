@@ -75,38 +75,119 @@ pub(crate) fn preview_mode(st: &State) -> Option<ViewMode> {
 
 // ----- Print Preview (buttons: Print..., Next Page, Prev Page, Zoom In, Zoom Out, Close)
 
+/// Preview magnifications in percent of the printed size; it opens on the
+/// second so a whole sheet fits a normal workspace.
+const PREVIEW_ZOOMS: [u32; 4] = [25, 50, 100, 200];
+const PREVIEW_START_ZOOM: usize = 1;
+
+const BTN_PRINT: &str = "Print...";
+const BTN_NEXT: &str = "Next Page";
+const BTN_PREV: &str = "Prev Page";
+const BTN_ZOOM_IN: &str = "Zoom In";
+const BTN_ZOOM_OUT: &str = "Zoom Out";
+const BTN_CLOSE: &str = "Close";
+
 fn preview_command(st: &mut State) -> HResult<()> {
     st.print_preview = Some(1);
+    st.preview_zoom = PREVIEW_START_ZOOM;
     Ok(())
 }
 
-/// Next Page; a no-op on the last page (the button is disabled there).
-#[allow(dead_code)]
-pub(crate) fn preview_next(st: &mut State) {
-    let pages = page_count(st);
-    if let Some(page) = st.print_preview.as_mut() {
-        *page = (*page + 1).min(pages);
+/// Whether the preview replaces the normal window. Canvas input, menus and
+/// shortcuts are ignored while it does.
+pub(crate) fn preview_active(st: &State) -> bool {
+    st.print_preview.is_some()
+}
+
+/// Key press while the preview is shown: Esc closes it, Page Down / Page Up
+/// turn the page; every other key is swallowed.
+pub(crate) fn preview_key(st: &mut State, key: Key) {
+    let button = match key {
+        Key::Escape => BTN_CLOSE,
+        Key::PageDown => BTN_NEXT,
+        Key::PageUp => BTN_PREV,
+        _ => return,
+    };
+    // The keys map onto fixed buttons that exist while the preview is shown.
+    let _ = preview_click(st, button);
+}
+
+/// The toolbar as `App::preview_buttons` reports it.
+pub(crate) fn preview_buttons(st: &State) -> HResult<Vec<PreviewButton>> {
+    let Some(page) = st.print_preview else {
+        return Err(HarnessError::Invalid("Print Preview is not shown".into()));
+    };
+    let button = |label: &str, enabled: bool| PreviewButton { label: label.to_owned(), enabled };
+    Ok(vec![
+        button(BTN_PRINT, true),
+        button(BTN_NEXT, page < page_count(st)),
+        button(BTN_PREV, page > 1),
+        button(BTN_ZOOM_IN, st.preview_zoom + 1 < PREVIEW_ZOOMS.len()),
+        button(BTN_ZOOM_OUT, st.preview_zoom > 0),
+        button(BTN_CLOSE, true),
+    ])
+}
+
+/// `App::preview_click`: a disabled button does nothing, like a greyed one.
+pub(crate) fn preview_click(st: &mut State, label: &str) -> HResult<()> {
+    let buttons = preview_buttons(st)?;
+    let Some(btn) = buttons.iter().find(|b| b.label == label) else {
+        return Err(HarnessError::Invalid(format!("Print Preview has no button {label:?}")));
+    };
+    if !btn.enabled || !st.dialogs.is_empty() {
+        return Ok(());
     }
-}
-
-/// Prev Page; a no-op on the first page.
-#[allow(dead_code)]
-pub(crate) fn preview_prev(st: &mut State) {
-    if let Some(page) = st.print_preview.as_mut() {
-        *page = page.saturating_sub(1).max(1);
+    match label {
+        BTN_PRINT => return print_command(st),
+        BTN_NEXT => st.print_preview = st.print_preview.map(|p| p + 1),
+        BTN_PREV => st.print_preview = st.print_preview.map(|p| p - 1),
+        BTN_ZOOM_IN => st.preview_zoom += 1,
+        BTN_ZOOM_OUT => st.preview_zoom -= 1,
+        _ => st.print_preview = None,
     }
+    Ok(())
 }
 
-/// Close: back to the normal view, the image untouched.
-#[allow(dead_code)]
-pub(crate) fn preview_close(st: &mut State) {
-    st.print_preview = None;
-}
-
-/// The preview's Print... button.
-#[allow(dead_code)]
-pub(crate) fn preview_print(st: &mut State) -> HResult<()> {
-    print_command(st)
+/// The workspace while the preview is shown: the sheet at the preview zoom
+/// on the grey background, with the current page's slice of the image inside
+/// the margins. `None` when the preview is not shown.
+pub(crate) fn render_preview(st: &State) -> Option<Image> {
+    let page = st.print_preview?;
+    let (ww, wh) = st.workspace_size;
+    let mut out = Image { width: ww, height: wh, pixels: vec![crate::render::WORKSPACE_GREY; ww as usize * wh as usize] };
+    let zoom = u64::from(PREVIEW_ZOOMS[st.preview_zoom.min(PREVIEW_ZOOMS.len() - 1)]);
+    let ps = &st.page_setup;
+    let (paper_w, paper_h) = ps.paper_inches();
+    let scaled = |inches: f64| u64::from(to_px(inches)) * zoom / 100;
+    let origin = i64::from(crate::render::CANVAS_MARGIN);
+    let mut put = |x: u64, y: u64, c: Rgb| {
+        let (x, y) = (x as i64 + origin, y as i64 + origin);
+        if x < i64::from(ww) && y < i64::from(wh) {
+            out.pixels[y as usize * ww as usize + x as usize] = c;
+        }
+    };
+    for y in 0..scaled(paper_h) {
+        for x in 0..scaled(paper_w) {
+            put(x, y, Rgb::new(255, 255, 255));
+        }
+    }
+    // Page `page` covers the image block (col, row) of the left-to-right,
+    // top-to-bottom split.
+    let (pw, ph) = ps.printable_px().unwrap_or((1, 1));
+    let cols = st.doc.width.div_ceil(pw);
+    let (col, row) = ((page - 1) % cols, (page - 1) / cols);
+    let (x0, y0) = (col * pw, row * ph);
+    let (slice_w, slice_h) = (pw.min(st.doc.width - x0), ph.min(st.doc.height - y0));
+    let (ml, mt) = (scaled(ps.left), scaled(ps.top));
+    for dy in 0..u64::from(slice_h) * zoom / 100 {
+        for dx in 0..u64::from(slice_w) * zoom / 100 {
+            let (sx, sy) = (x0 + (dx * 100 / zoom) as u32, y0 + (dy * 100 / zoom) as u32);
+            if let Some(c) = st.doc.get(sx as i32, sy as i32) {
+                put(ml + dx, mt + dy, c);
+            }
+        }
+    }
+    Some(out)
 }
 
 // ----- Print
@@ -213,4 +294,87 @@ fn read_setup(od: &OpenDialog) -> Result<PageSetup, String> {
         return Err("The margins leave no room to print on the page.".into());
     }
     Ok(ps)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{App, Key, Mods, PlatformCall, PointerKind, Rgb, StartOptions, Surface, ViewMode};
+
+    fn app(tag: &str, w: u32, h: u32) -> App {
+        let mut a =
+            App::start(StartOptions::new(std::env::temp_dir().join(format!("brushling-print-{}-{tag}", std::process::id()))))
+                .unwrap();
+        a.new_document(w, h, Rgb::new(255, 255, 255)).unwrap();
+        a
+    }
+
+    fn enabled(a: &App, label: &str) -> bool {
+        a.preview_buttons().unwrap().iter().find(|b| b.label == label).unwrap().enabled
+    }
+
+    #[test]
+    fn page_buttons_follow_the_page_and_close_restores_the_view() {
+        let mut a = app("pages", 2000, 100);
+        a.menu("File > Print Preview").unwrap();
+        let labels: Vec<_> = a.preview_buttons().unwrap().into_iter().map(|b| b.label).collect();
+        assert_eq!(labels, ["Print...", "Next Page", "Prev Page", "Zoom In", "Zoom Out", "Close"]);
+        assert!(enabled(&a, "Next Page") && !enabled(&a, "Prev Page"));
+        a.preview_click("Prev Page").unwrap();
+        a.preview_click("Next Page").unwrap();
+        a.preview_click("Next Page").unwrap();
+        assert_eq!(a.view_mode().unwrap(), ViewMode::PrintPreview { page: 3, pages: 3 });
+        assert!(!enabled(&a, "Next Page") && enabled(&a, "Prev Page"));
+        a.preview_click("Next Page").unwrap();
+        assert_eq!(a.view_mode().unwrap(), ViewMode::PrintPreview { page: 3, pages: 3 });
+        a.preview_click("Close").unwrap();
+        assert_eq!(a.view_mode().unwrap(), ViewMode::Normal);
+        assert!(a.preview_buttons().is_err());
+    }
+
+    #[test]
+    fn zoom_buttons_stop_at_the_ends() {
+        let mut a = app("zoom", 100, 100);
+        a.menu("File > Print Preview").unwrap();
+        while enabled(&a, "Zoom In") {
+            a.preview_click("Zoom In").unwrap();
+        }
+        assert!(enabled(&a, "Zoom Out"));
+        while enabled(&a, "Zoom Out") {
+            a.preview_click("Zoom Out").unwrap();
+        }
+        assert!(enabled(&a, "Zoom In"));
+    }
+
+    #[test]
+    fn canvas_input_is_blocked_and_the_page_is_rendered() {
+        let mut a = app("input", 100, 100);
+        a.set_colors(Rgb::new(0, 0, 0), Rgb::new(255, 255, 255)).unwrap();
+        a.select_tool(crate::Tool::Pencil).unwrap();
+        a.set_pixel(0, 0, Rgb::new(255, 0, 0)).unwrap();
+        a.menu("File > Print Preview").unwrap();
+        a.pointer(PointerKind::Press(crate::Button::Left), crate::Pos::Image(20, 20), Mods::NONE).unwrap();
+        a.pointer(PointerKind::Release(crate::Button::Left), crate::Pos::Image(20, 20), Mods::NONE).unwrap();
+        a.key(Key::Char('a'), Mods::CTRL).unwrap();
+        a.menu("Edit > Select All").unwrap();
+        assert!(a.selection().unwrap().is_none());
+        assert!(!a.document().unwrap().dirty);
+        let img = a.render(Surface::Workspace).unwrap();
+        // 50% preview: the sheet is white, the image sits inside the margins (0.75 in left, 1 in top).
+        let at = |x: u32, y: u32| img.pixels[(y * img.width + x) as usize];
+        let off = crate::render::CANVAS_MARGIN as u32;
+        assert_eq!(at(off + 2, off + 2), Rgb::new(255, 255, 255));
+        assert_eq!(at(off + 36, off + 48), Rgb::new(255, 0, 0));
+        assert_eq!(at(img.width - 1, img.height - 1), crate::render::WORKSPACE_GREY);
+        a.key(Key::Escape, Mods::NONE).unwrap();
+        assert_eq!(a.view_mode().unwrap(), ViewMode::Normal);
+    }
+
+    #[test]
+    fn print_button_opens_the_print_dialog_and_records_the_page_count() {
+        let mut a = app("print", 2000, 100);
+        a.menu("File > Print Preview").unwrap();
+        a.preview_click("Print...").unwrap();
+        a.dialog_click("OK").unwrap();
+        assert_eq!(a.platform_calls().unwrap(), [PlatformCall::Print { pages: 3 }]);
+    }
 }

@@ -426,6 +426,73 @@ pub enum ViewMode {
     PrintPreview { page: u32, pages: u32 },
 }
 
+/// One button of the Print Preview toolbar.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreviewButton {
+    pub label: String,
+    pub enabled: bool,
+}
+
+/// The tabs on the left of the Help Topics window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HelpTab {
+    Contents,
+    Index,
+    Search,
+}
+
+/// A user action in the Help Topics window (`App::help_action`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HelpAction {
+    SelectTab(HelpTab),
+    /// Contents: open a topic by its title.
+    OpenTopic(String),
+    /// Index: type into the keyword field; the list jumps to the first match.
+    TypeKeyword(String),
+    /// Index: pick a keyword in the list.
+    SelectKeyword(String),
+    /// Search: type into the search field.
+    TypeSearch(String),
+    /// Search: run the search (the "List Topics" button).
+    ListTopics,
+    /// Search: pick a result by its topic title.
+    SelectResult(String),
+    /// Index and Search: the Display button shows the picked entry.
+    Display,
+    /// Toolbar buttons `Hide` (`Show` while hidden), `Back` and `Forward`.
+    Hide,
+    Back,
+    Forward,
+    /// An item of the Options menu: `Back`, `Forward` or `Print`.
+    Options(String),
+}
+
+/// What the Help Topics window shows (`App::help_window`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HelpView {
+    pub tab: HelpTab,
+    /// False after Hide: only the topic pane is left.
+    pub tabs_visible: bool,
+    /// Toolbar buttons in order (Hide/Show, Back, Forward, Options) and
+    /// whether each is enabled.
+    pub toolbar: Vec<(String, bool)>,
+    /// Items of the Options menu.
+    pub options: Vec<String>,
+    /// Contents tab: topic titles.
+    pub contents: Vec<String>,
+    /// Index tab: the keyword field, the list and the picked keyword.
+    pub keyword_field: String,
+    pub keywords: Vec<String>,
+    pub selected_keyword: Option<String>,
+    /// Search tab: the query, the topics found and the picked one.
+    pub search_field: String,
+    pub results: Vec<String>,
+    pub selected_result: Option<String>,
+    /// The topic pane.
+    pub topic_title: String,
+    pub topic_text: String,
+}
+
 /// Panels and secondary windows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Panel {

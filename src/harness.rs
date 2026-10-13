@@ -1,8 +1,8 @@
 //! The headless application handle used by the GUI shell and by the tests.
 //!
-//! Every method below starts as a stub returning
-//! `Err(HarnessError::Unbuilt("<owning feature id>"))`. Builders replace the
-//! body (and add private state to [`App`]); signatures are frozen.
+//! Each method delegates to the feature that owns the behaviour; behaviour
+//! that is not built returns `Err(HarnessError::Unbuilt("<owning feature id>"))`.
+//! Existing signatures are frozen; new methods may be added.
 //!
 //! # Events
 //! - `pointer(kind, pos, mods)` drives every canvas tool. "click P" is
@@ -248,6 +248,17 @@ impl App {
         Ok(crate::features::view_view_bitmap::mode(&self.st))
     }
 
+    /// The Print Preview toolbar (`Print...`, `Next Page`, `Prev Page`,
+    /// `Zoom In`, `Zoom Out`, `Close`); an error when the preview is not shown.
+    pub fn preview_buttons(&self) -> HResult<Vec<PreviewButton>> {
+        crate::features::file_print::preview_buttons(&self.st)
+    }
+
+    /// Press a Print Preview button by label; a disabled one does nothing.
+    pub fn preview_click(&mut self, label: &str) -> HResult<()> {
+        crate::features::file_print::preview_click(&mut self.st, label)
+    }
+
     pub fn panel(&self, panel: Panel) -> HResult<PanelState> {
         crate::features::view_panels::panel_state(&self.st, panel)
     }
@@ -256,6 +267,16 @@ impl App {
     /// docked place (`None`).
     pub fn place_panel(&mut self, panel: Panel, at: Option<(i32, i32)>) -> HResult<()> {
         crate::features::view_panels::place(&mut self.st, panel, at)
+    }
+
+    /// The Help Topics window; `None` while it is closed.
+    pub fn help_window(&self) -> HResult<Option<HelpView>> {
+        Ok(crate::features::help_help_about::view(&self.st))
+    }
+
+    /// Operate the open Help Topics window.
+    pub fn help_action(&mut self, action: HelpAction) -> HResult<()> {
+        crate::features::help_help_about::act(&mut self.st, action)
     }
 
     /// Press a panel's or secondary window's close button.

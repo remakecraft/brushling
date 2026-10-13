@@ -132,6 +132,8 @@ pub struct State {
     // ----- help.help_about / input.escape
     /// The Help Topics window is open.
     pub help_open: bool,
+    /// What the Help Topics window shows; reset each time the window opens.
+    pub help: crate::features::help_help_about::HelpModel,
     /// Document and selection as they were at the press of a selection gesture (Esc restores them).
     pub esc_base: Option<crate::features::input_escape::EscBase>,
     // ----- file.save_changes_prompt
@@ -170,6 +172,8 @@ pub struct State {
     pub page_setup: crate::features::file_print::PageSetup,
     /// Print Preview: the 1-based current page while the preview is shown.
     pub print_preview: Option<u32>,
+    /// Index into the preview's magnification steps.
+    pub preview_zoom: usize,
     // ----- view.panels / view.thumbnail / view.view_bitmap
     /// View toggles and floating positions of the panels and the thumbnail window.
     pub panels: crate::features::view_panels::Panels,
@@ -229,6 +233,7 @@ impl State {
             text_style: Default::default(),
             text_toolbar: true,
             help_open: false,
+            help: Default::default(),
             esc_base: None,
             pending_action: None,
             after_save: None,
@@ -245,6 +250,7 @@ impl State {
             ptr_mods: Mods::default(),
             page_setup: Default::default(),
             print_preview: None,
+            preview_zoom: 0,
             panels: crate::features::view_panels::Panels::new(screen),
             view_bitmap: false,
         };

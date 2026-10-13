@@ -3,11 +3,10 @@
 //! through the registry and calls `State::menu`, so enabled state, dialogs and
 //! the save prompts behave identically).
 //!
-//! Most commands bind their own key where they are registered. This file
-//! binds the ones whose commands live in features that register no key of
-//! their own (Print, the View toggles, View Bitmap). A shortcut whose command
-//! is not registered yet does nothing. The first matching binding wins, so a
-//! duplicate registration elsewhere is harmless.
+//! Each command binds its own key where it is registered (one owner per
+//! binding), so this feature registers nothing itself. The test below checks
+//! the complete table against the registry. A shortcut whose command is not
+//! registered does nothing.
 //!
 //! Complete table (spec ui.keyboard_shortcuts):
 //! Ctrl+N New, Ctrl+O Open, Ctrl+S Save, Ctrl+P Print, Alt+F4 Exit,
@@ -18,14 +17,9 @@
 //! Image, Ctrl+PageUp Large Size, Ctrl+PageDown Normal Size, Ctrl+G Show Grid.
 
 use crate::registry::Registry;
-use crate::types::*;
 
-pub fn register(r: &mut Registry) {
-    r.shortcut(Key::Char('p'), Mods::CTRL, "File > Print...");
-    r.shortcut(Key::Char('t'), Mods::CTRL, "View > Tool Box");
-    r.shortcut(Key::Char('l'), Mods::CTRL, "View > Color Box");
-    r.shortcut(Key::Char('f'), Mods::CTRL, "View > View Bitmap");
-}
+/// Nothing to register: see the module docs.
+pub fn register(_r: &mut Registry) {}
 
 #[cfg(test)]
 mod tests {
