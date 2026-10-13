@@ -226,14 +226,12 @@ impl App {
     /// Entries of the menu at `path` ("" = menu bar titles), separators
     /// included.
     pub fn menu_items(&self, path: &str) -> HResult<Vec<MenuItem>> {
-        let _ = path;
-        Err(HarnessError::Unbuilt("ui.menu_bar"))
+        self.st.menu_listing(path)
     }
 
     /// One entry by full path.
     pub fn menu_item(&self, path: &str) -> HResult<MenuItem> {
-        let _ = path;
-        Err(HarnessError::Unbuilt("ui.menu_bar"))
+        self.st.menu_entry(path)
     }
 
     // ----- view.*
