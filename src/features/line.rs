@@ -4,7 +4,7 @@
 
 use std::cell::Cell;
 
-use crate::raster::line_points;
+use crate::raster::shapes::thick_line;
 use crate::registry::Registry;
 use crate::state::State;
 use crate::tools::{PointerEvent, ToolHandler};
@@ -34,13 +34,9 @@ fn snap(start: (i32, i32), end: (i32, i32)) -> (i32, i32) {
     }
 }
 
-/// Every pixel of the line from `a` to `b`, each path point widened to a
-/// `w` x `w` square centred as evenly as the width allows.
-fn stamps(a: (i32, i32), b: (i32, i32), w: i32) -> impl Iterator<Item = (i32, i32)> {
-    let lo = -((w - 1) / 2);
-    line_points(a, b).into_iter().flat_map(move |(x, y)| {
-        (lo..lo + w).flat_map(move |oy| (lo..lo + w).map(move |ox| (x + ox, y + oy)))
-    })
+/// Every pixel of the width-`w` line from `a` to `b` (spec path rule, square stamp).
+fn stamps(a: (i32, i32), b: (i32, i32), w: i32) -> Vec<(i32, i32)> {
+    thick_line(a, b, w)
 }
 
 thread_local! {
