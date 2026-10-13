@@ -141,6 +141,11 @@ pub struct State {
     pub custom_colors: [Rgb; 16],
     /// Slot (0-based) the next "Add to Custom Colors" fills.
     pub custom_next: usize,
+    // ----- file.print
+    /// Page Setup choices; they last for the session only.
+    pub page_setup: crate::features::file_print::PageSetup,
+    /// Print Preview: the 1-based current page while the preview is shown.
+    pub print_preview: Option<u32>,
 }
 
 impl State {
@@ -198,6 +203,8 @@ impl State {
             last_swatch: 0,
             custom_colors: [Rgb::W; 16],
             custom_next: 0,
+            page_setup: Default::default(),
+            print_preview: None,
         })
     }
 
@@ -222,6 +229,7 @@ impl State {
         self.airbrush = Default::default();
         self.canvas_drag = None;
         self.mag_hover = None;
+        self.print_preview = None;
         crate::features::view_zoom::clamp_scroll(self);
     }
 

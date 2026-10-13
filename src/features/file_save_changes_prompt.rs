@@ -19,6 +19,8 @@ pub enum Pending {
     Open,
     Recent(PathBuf),
     Exit,
+    /// File > Send: the file on disk must match the document first. "No" abandons it.
+    Send,
 }
 
 pub fn register(_r: &mut Registry) {}
@@ -28,6 +30,11 @@ pub(crate) fn guard(st: &mut State, action: Pending) -> HResult<()> {
     if !st.doc.dirty {
         return run(st, action);
     }
+    ask(st, action)
+}
+
+/// Ask the question unconditionally and park `action` until it is answered.
+pub(crate) fn ask(st: &mut State, action: Pending) -> HResult<()> {
     let name = st
         .doc
         .path
@@ -46,7 +53,7 @@ fn answered(st: &mut State, button: &str) -> HResult<()> {
             st.after_save = Some(action);
             crate::features::file_save::save_document(st)
         }
-        "No" => run(st, action),
+        "No" if action != Pending::Send => run(st, action),
         _ => Ok(()),
     }
 }
@@ -66,5 +73,6 @@ fn run(st: &mut State, action: Pending) -> HResult<()> {
         Pending::Open => crate::features::file_open::show_open_dialog(st),
         Pending::Recent(path) => crate::features::file_recent::open_recent(st, &path),
         Pending::Exit => crate::features::file_exit::exit(st),
+        Pending::Send => crate::features::file_send::send_now(st),
     }
 }

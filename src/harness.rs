@@ -242,6 +242,9 @@ impl App {
     }
 
     pub fn view_mode(&self) -> HResult<ViewMode> {
+        if let Some(mode) = crate::features::file_print::preview_mode(&self.st) {
+            return Ok(mode);
+        }
         Err(HarnessError::Unbuilt("view.view_bitmap"))
     }
 

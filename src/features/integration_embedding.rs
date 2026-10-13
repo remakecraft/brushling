@@ -1,5 +1,9 @@
-//! Feature integration.embedding: Embedding in other documents. Not built yet; the owning builder replaces
-//! this file. Until then its behaviour stays `HarnessError::Unbuilt`.
+//! Feature integration.embedding: scope decision, nothing to build.
+//!
+//! Version 1 has no in-place embedding or editing inside other applications.
+//! Images reach other programs through saved files and the clipboard, which
+//! `edit.clipboard` provides (Copy puts the selection on the clipboard as a
+//! bitmap with the same pixels).
 
 use crate::registry::Registry;
 
