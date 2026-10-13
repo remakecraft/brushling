@@ -5,10 +5,13 @@ use crate::registry::Registry;
 
 pub mod color_box;
 pub mod eraser;
+pub mod file_open;
+pub mod file_save;
 pub mod fill;
 pub mod flip_rotate;
 pub mod format_bmp_read;
 pub mod format_bmp_write;
+pub mod format_color_reduction;
 pub mod invert;
 pub mod line;
 pub mod menu_bar;
@@ -21,10 +24,13 @@ pub mod undo_repeat;
 pub fn register_all(r: &mut Registry) {
     color_box::register(r);
     eraser::register(r);
+    file_open::register(r);
+    file_save::register(r);
     fill::register(r);
     flip_rotate::register(r);
     format_bmp_read::register(r);
     format_bmp_write::register(r);
+    format_color_reduction::register(r);
     invert::register(r);
     line::register(r);
     mouse_colors::register(r);

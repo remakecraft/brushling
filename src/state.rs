@@ -73,6 +73,8 @@ pub struct State {
     // ----- tool.pencil (per-gesture data)
     pub pencil_last: Option<(i32, i32)>,
     pub pencil_base: Option<Vec<Rgb>>,
+    /// file.save: a save waiting for the colour-loss warning to be answered.
+    pub pending_save: Option<(std::path::PathBuf, u32)>,
 }
 
 impl State {
@@ -101,6 +103,7 @@ impl State {
             menu_open: None,
             pencil_last: None,
             pencil_base: None,
+            pending_save: None,
         })
     }
 
