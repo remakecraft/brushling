@@ -109,6 +109,10 @@ impl State {
         if !self.dialogs.is_empty() {
             return Ok(());
         }
+        // View Bitmap: a button press ends the full-screen view and nothing else.
+        if crate::features::view_view_bitmap::swallow(self, matches!(kind, PointerKind::Press(_))) {
+            return Ok(());
+        }
         let image = self.image_point(pos);
         if let Some(p) = image {
             self.pointer_image = Some(p);
@@ -201,6 +205,10 @@ impl State {
                 Key::Enter => self.dialog_enter(),
                 _ => Ok(()),
             };
+        }
+        // View Bitmap: any key press ends the full-screen view and nothing else.
+        if crate::features::view_view_bitmap::swallow(self, true) {
+            return Ok(());
         }
         if self.exit_code.is_none() && self.menu_key(key, mods)? {
             return Ok(());

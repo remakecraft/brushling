@@ -242,25 +242,22 @@ impl App {
     }
 
     pub fn view_mode(&self) -> HResult<ViewMode> {
-        Err(HarnessError::Unbuilt("view.view_bitmap"))
+        Ok(crate::features::view_view_bitmap::mode(&self.st))
     }
 
     pub fn panel(&self, panel: Panel) -> HResult<PanelState> {
-        let _ = panel;
-        Err(HarnessError::Unbuilt("view.panels"))
+        crate::features::view_panels::panel_state(&self.st, panel)
     }
 
     /// Drag a panel to float at a screen position (`Some`) or back to its
     /// docked place (`None`).
     pub fn place_panel(&mut self, panel: Panel, at: Option<(i32, i32)>) -> HResult<()> {
-        let _ = (panel, at);
-        Err(HarnessError::Unbuilt("view.panels"))
+        crate::features::view_panels::place(&mut self.st, panel, at)
     }
 
     /// Press a panel's or secondary window's close button.
     pub fn close_panel(&mut self, panel: Panel) -> HResult<()> {
-        let _ = panel;
-        Err(HarnessError::Unbuilt("view.panels"))
+        crate::features::view_panels::close(&mut self.st, panel)
     }
 
     // ----- selection / text / clipboard

@@ -152,12 +152,17 @@ pub struct State {
     /// and its modifiers, for the status bar.
     pub ptr_image: Option<(i32, i32)>,
     pub ptr_mods: Mods,
+    // ----- view.panels / view.thumbnail / view.view_bitmap
+    /// View toggles and floating positions of the panels and the thumbnail window.
+    pub panels: crate::features::view_panels::Panels,
+    /// The full-screen View Bitmap view is up.
+    pub view_bitmap: bool,
 }
 
 impl State {
     pub fn new(settings: Settings, services: Services, screen: (u32, u32)) -> HResult<State> {
         let (w, h) = settings.new_size().unwrap_or(DEFAULT_SIZE);
-        Ok(State {
+        let mut st = State {
             doc: Document::new(w, h, Rgb::W)?,
             fg: Rgb::K,
             bg: Rgb::W,
@@ -214,7 +219,11 @@ impl State {
             hover_since: 0,
             ptr_image: None,
             ptr_mods: Mods::default(),
-        })
+            panels: crate::features::view_panels::Panels::new(screen),
+            view_bitmap: false,
+        };
+        crate::features::ui_layout_persistence::restore(&mut st);
+        Ok(st)
     }
 
     /// Install a new document and drop every piece of per-document state.

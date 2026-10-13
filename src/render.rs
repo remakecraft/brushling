@@ -16,8 +16,8 @@ impl State {
         match surface {
             Surface::Composite => Ok(self.render_composite()),
             Surface::Workspace => Ok(self.render_workspace()),
-            Surface::Thumbnail => Err(HarnessError::Unbuilt("view.thumbnail")),
-            Surface::FullScreen => Err(HarnessError::Unbuilt("view.view_bitmap")),
+            Surface::Thumbnail => crate::features::view_thumbnail::render(self),
+            Surface::FullScreen => crate::features::view_view_bitmap::render(self),
         }
     }
 

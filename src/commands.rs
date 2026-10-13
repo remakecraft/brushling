@@ -26,7 +26,7 @@ impl State {
         let Some(cmd) = registry().command_for(path) else {
             return Err(HarnessError::Invalid(format!("unknown or unavailable menu command {path:?}")));
         };
-        if !self.dialogs.is_empty() || self.exit_code.is_some() {
+        if !self.dialogs.is_empty() || self.exit_code.is_some() || self.view_bitmap {
             return Ok(());
         }
         if cmd.enabled.is_some_and(|f| !f(self)) {

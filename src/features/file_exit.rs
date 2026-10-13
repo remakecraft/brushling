@@ -18,5 +18,6 @@ fn exit_command(st: &mut State) -> HResult<()> {
 /// Persist the settings and mark the application as exited with code 0.
 pub(crate) fn exit(st: &mut State) -> HResult<()> {
     st.exit_code = Some(0);
+    crate::features::ui_layout_persistence::store(st);
     st.settings.save()
 }
