@@ -73,6 +73,8 @@ pub struct State {
     pub exit_code: Option<i32>,
     /// ui.menu_bar: path of the menu opened with Alt+letter, if any.
     pub menu_open: Option<String>,
+    /// ui.menu_bar: the menu title highlighted by a lone Alt press (menu closed).
+    pub menu_highlight: Option<String>,
     // ----- tool.pencil (per-gesture data)
     pub pencil_last: Option<(i32, i32)>,
     pub pencil_base: Option<Vec<Rgb>>,
@@ -159,6 +161,7 @@ impl State {
             dialogs: Vec::new(),
             exit_code: None,
             menu_open: None,
+            menu_highlight: None,
             pencil_last: None,
             pencil_base: None,
             eraser_last: None,

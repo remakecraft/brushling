@@ -78,6 +78,10 @@ impl ToolHandler for SelectTool {
     }
 
     fn press(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
+        // tools.mouse_colors E1: the right button does nothing here.
+        if ev.button == Some(Button::Right) {
+            return Ok(());
+        }
         st.sel_drag = None;
         st.end_selection();
         let Some(p) = ev.image else { return Ok(()) };
@@ -87,6 +91,10 @@ impl ToolHandler for SelectTool {
     }
 
     fn drag(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
+        // tools.mouse_colors E1: the right button does nothing here.
+        if ev.button == Some(Button::Right) {
+            return Ok(());
+        }
         let Some(p) = ev.image.map(|p| clamp(st, p)) else { return Ok(()) };
         if let Some(d) = st.sel_drag.as_mut() {
             d.moved = true;
@@ -100,6 +108,10 @@ impl ToolHandler for SelectTool {
     }
 
     fn release(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
+        // tools.mouse_colors E1: the right button does nothing here.
+        if ev.button == Some(Button::Right) {
+            return Ok(());
+        }
         let Some(mut d) = st.sel_drag.take() else { return Ok(()) };
         // The release position extends the gesture but does not by itself
         // count as movement: a press and release in place is a click.
@@ -145,6 +157,24 @@ mod tests {
         let s = freeform_selection(&path).unwrap();
         assert_eq!(s.bounds, Rect::new(2, 2, 6, 6));
         assert!(s.mask.iter().all(|m| *m));
+    }
+
+    #[test]
+    fn right_button_does_nothing() {
+        use crate::settings::Settings;
+        let dir = std::env::temp_dir().join(format!("brushling-select-{}", std::process::id()));
+        let mut st = State::new(Settings::load(&dir), Services::default(), (1920, 1080)).unwrap();
+        st.replace_document(crate::doc::Document::new(32, 32, Rgb::W).unwrap());
+        st.select_tool(Tool::Select).unwrap();
+        st.pointer(PointerKind::Press(Button::Left), Pos::Image(2, 2), Mods::NONE).unwrap();
+        st.pointer(PointerKind::Move, Pos::Image(8, 8), Mods::NONE).unwrap();
+        st.pointer(PointerKind::Release(Button::Left), Pos::Image(8, 8), Mods::NONE).unwrap();
+        let before = st.sel.as_ref().map(|s| s.bounds);
+        assert!(before.is_some());
+        st.pointer(PointerKind::Press(Button::Right), Pos::Image(20, 20), Mods::NONE).unwrap();
+        st.pointer(PointerKind::Move, Pos::Image(25, 25), Mods::NONE).unwrap();
+        st.pointer(PointerKind::Release(Button::Right), Pos::Image(25, 25), Mods::NONE).unwrap();
+        assert_eq!(st.sel.as_ref().map(|s| s.bounds), before);
     }
 
     #[test]
