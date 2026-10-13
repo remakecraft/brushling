@@ -266,7 +266,7 @@ impl App {
     // ----- selection / text / clipboard
 
     pub fn selection(&self) -> HResult<Option<Selection>> {
-        Err(HarnessError::Unbuilt("tool.select"))
+        Ok(self.st.sel.as_ref().map(|s| s.public()))
     }
 
     pub fn text_frame(&self) -> HResult<Option<TextFrame>> {
