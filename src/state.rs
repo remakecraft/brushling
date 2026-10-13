@@ -96,6 +96,11 @@ pub struct State {
     // ----- tool.pick_color
     /// The tool that was active before the current one.
     pub prev_tool: Tool,
+    // ----- view.grid / tool.magnifier
+    /// View > Zoom > Show Grid check mark (drawn only above 200%).
+    pub show_grid: bool,
+    /// Image pixel under the pointer while the magnifier hovers the canvas.
+    pub mag_hover: Option<(i32, i32)>,
     /// file.save: a save waiting for the colour-loss warning to be answered.
     pub pending_save: Option<(std::path::PathBuf, u32)>,
     // ----- edit.clipboard / edit.copy_to_paste_from
@@ -172,6 +177,8 @@ impl State {
             pencil_pushed: false,
             stroke_base: None,
             prev_tool: Tool::Pencil,
+            show_grid: false,
+            mag_hover: None,
             pending_save: None,
             clipboard: ClipboardContent::Empty,
             pending_paste: None,
@@ -214,6 +221,8 @@ impl State {
         self.poly = Default::default();
         self.airbrush = Default::default();
         self.canvas_drag = None;
+        self.mag_hover = None;
+        crate::features::view_zoom::clamp_scroll(self);
     }
 
     /// The size File > New creates: the confirmed Attributes size, else the

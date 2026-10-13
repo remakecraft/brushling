@@ -238,7 +238,7 @@ impl App {
 
     /// Current zoom in percent.
     pub fn zoom(&self) -> HResult<u32> {
-        Err(HarnessError::Unbuilt("view.zoom"))
+        Ok(self.st.zoom)
     }
 
     pub fn view_mode(&self) -> HResult<ViewMode> {

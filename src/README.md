@@ -82,6 +82,16 @@ validation message box returns to the dialog beneath after `OK`.
 - `State::record_call(PlatformCall)` for printer, mail and wallpaper.
 - Settings: `st.settings.get/set`, then `save()`; written on File > Exit.
 
+## Zoom, scroll, grid (`features/view_zoom.rs`)
+- `view_zoom::set_zoom(st, percent)` is the only way to change `State::zoom` (keeps the top-left
+  visible image pixel, clamps scroll, calls `tool_text::on_zoom_changed`). `set_zoom_at` takes an
+  explicit scroll. `clamp_scroll` / `max_scroll` bound `State::scroll` (screen pixels).
+- Mapping: `view_zoom::screen_to_image(st, sx, sy)` (workspace pixel -> image pixel, floor) and
+  `image_to_screen(st, x, y)` (workspace position of the image pixel's top-left screen pixel).
+  The status bar should use the first one for the pointer position.
+- `State::show_grid` is the Show Grid check; `view_grid::visible(st)` = checked and zoom > 200.
+- Magnifier hover rectangle: `State::mag_hover` (image pixel), drawn by `tool_magnifier`.
+
 ## Selection model (`selection.rs`)
 One selection exists at a time: `State::sel: Option<Sel>`. `Sel { bounds,
 mask, floating, origin }`: `bounds` is inclusive in image coordinates, `mask`

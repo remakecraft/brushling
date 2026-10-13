@@ -132,6 +132,9 @@ fn check_state(st: &State, path: &str) -> bool {
     if path == "Image > Draw Opaque" {
         return st.options.opaque;
     }
+    if path == "View > Zoom > Show Grid" {
+        return st.show_grid;
+    }
     matches!(path, "View > Tool Box" | "View > Color Box" | "View > Status Bar")
 }
 
