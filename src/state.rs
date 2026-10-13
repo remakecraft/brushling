@@ -73,6 +73,9 @@ pub struct State {
     // ----- tool.pencil (per-gesture data)
     pub pencil_last: Option<(i32, i32)>,
     pub pencil_base: Option<Vec<Rgb>>,
+    // ----- tool.select (shared selection model, see selection.rs)
+    pub sel: Option<crate::selection::Sel>,
+    pub sel_drag: Option<crate::selection::SelDrag>,
 }
 
 impl State {
@@ -101,6 +104,8 @@ impl State {
             menu_open: None,
             pencil_last: None,
             pencil_base: None,
+            sel: None,
+            sel_drag: None,
         })
     }
 
@@ -109,6 +114,7 @@ impl State {
     /// history, ...) reset it here.
     pub fn replace_document(&mut self, doc: Document) {
         self.doc = doc;
+        self.reset_selection();
         self.held = None;
         self.last_press = None;
         self.pointer_image = None;

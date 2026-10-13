@@ -57,3 +57,29 @@ validation message box returns to the dialog beneath after `OK`.
 - `State::remember_new_size(w, h)` stores the Attributes size for File > New.
 - `State::record_call(PlatformCall)` for printer, mail and wallpaper.
 - Settings: `st.settings.get/set`, then `save()`; written on File > Exit.
+
+## Selection model (`selection.rs`)
+One selection exists at a time: `State::sel: Option<Sel>`. `Sel { bounds,
+mask, floating, origin }`: `bounds` is inclusive in image coordinates, `mask`
+is row-major over `bounds` (rectangles are all true, free-form shapes are
+not), `floating` is `None` while the pixels still live in the image and
+`Some(pixels)` (same indexing as `mask`) once lifted; `origin` is the bounds
+at creation/lift. `App::selection()` exposes it via `Sel::public()`.
+
+Helpers on `State` (none pushes an undo step; the caller calls
+`doc.push_undo()` first when the user-visible edit needs one):
+- `set_selection(sel)` ends the old selection, installs an unlifted one.
+- `lift_selection(clear_source)` floats the pixels (source filled with
+  `bg` when asked); sets `origin`. Move `sel.bounds` afterwards to move it.
+- `stamp_selection()` writes floating pixels where they lie (copy stamp);
+  `end_selection()` stamps and drops it; `discard_selection()` just drops;
+  `erase_selection()` fills an unlifted mask with `bg` and drops it.
+- `Sel::{rect, new, index, contains, is_floating}`; `State::has_selection`.
+- `selection::{screen_box, handle_centres}` give the marquee/handle geometry
+  used by the workspace layer (5x5 handles).
+
+Floating pixels are drawn by the composite layer in `selection.rs`; the
+dashed box, handles and drag preview by its workspace layer. The Select and
+Free-Form tools (`features/tool_select.rs`) end the previous selection on
+press, on tool change and on Esc. Per-gesture drag data is `State::sel_drag`.
+Add your own `Sel` fields in `selection.rs` and your gesture state to `State`.

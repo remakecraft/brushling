@@ -34,6 +34,7 @@ mod raster;
 mod registry;
 mod render;
 mod rng;
+mod selection;
 mod settings;
 mod state;
 mod tools;
