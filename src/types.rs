@@ -426,6 +426,20 @@ pub enum ViewMode {
     PrintPreview { page: u32, pages: u32 },
 }
 
+/// The text toolbar's lists and current choices (tool.text).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextToolbarState {
+    /// Font list; the bundled font comes first.
+    pub fonts: Vec<String>,
+    /// Size list in points.
+    pub sizes: Vec<u32>,
+    pub font: String,
+    pub size_pt: u32,
+    pub bold: bool,
+    pub italic: bool,
+    pub underline: bool,
+}
+
 /// Panels and secondary windows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Panel {

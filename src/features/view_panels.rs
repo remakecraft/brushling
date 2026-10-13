@@ -65,7 +65,10 @@ pub fn register(r: &mut Registry) {
     r.command("View > Tool Box", |st| toggle(st, Panel::ToolBox));
     r.command("View > Color Box", |st| toggle(st, Panel::ColorBox));
     r.command("View > Status Bar", |st| toggle(st, Panel::StatusBar));
-    r.command("View > Text Toolbar", |st| toggle(st, Panel::TextToolbar));
+    r.command("View > Text Toolbar", |st| {
+        toggle_text_toolbar(st);
+        Ok(())
+    });
     r.shortcut(Key::Char('t'), Mods::CTRL, "View > Tool Box");
     r.shortcut(Key::Char('l'), Mods::CTRL, "View > Color Box");
 }
@@ -76,7 +79,9 @@ pub fn visible(st: &State, panel: Panel) -> bool {
         Panel::ToolBox => st.panels.tool_box.visible,
         Panel::ColorBox => st.panels.color_box.visible,
         Panel::StatusBar => st.panels.status_bar,
-        Panel::TextToolbar => st.text_toolbar,
+        // `State::text_toolbar` is the View-menu check ("show it when a frame
+        // exists"); the toolbar itself is up only while a frame is active.
+        Panel::TextToolbar => st.text_toolbar && crate::features::tool_text::frame_active(st),
         Panel::Thumbnail => st.panels.thumbnail,
         Panel::Help => false,
     }
@@ -112,7 +117,7 @@ pub fn check_state(st: &State, path: &str) -> Option<bool> {
         "View > Tool Box" => Some(visible(st, Panel::ToolBox)),
         "View > Color Box" => Some(visible(st, Panel::ColorBox)),
         "View > Status Bar" => Some(visible(st, Panel::StatusBar)),
-        "View > Text Toolbar" => Some(visible(st, Panel::TextToolbar)),
+        "View > Text Toolbar" => Some(st.text_toolbar),
         "View > Zoom > Show Thumbnail" => Some(visible(st, Panel::Thumbnail)),
         _ => None,
     }
@@ -140,7 +145,7 @@ fn toggle(st: &mut State, panel: Panel) -> HResult<()> {
     Ok(())
 }
 
-/// View > Text Toolbar body, for the owner of that command to call.
+/// View > Text Toolbar body, also used by the text frame's context menu.
 pub fn toggle_text_toolbar(st: &mut State) {
     let show = !st.text_toolbar;
     set_visible(st, Panel::TextToolbar, show);

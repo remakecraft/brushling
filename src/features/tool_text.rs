@@ -10,6 +10,7 @@
 //! state in `State::text_style` / `State::text_toolbar`.
 
 mod font;
+mod toolbar;
 
 use crate::raster::{clip_rect, rect_from_corners};
 use crate::registry::Registry;
@@ -61,6 +62,8 @@ pub struct TextSession {
     pub cursor: usize,
     /// Other end of the selected text, when any.
     pub anchor: Option<usize>,
+    /// The right-click context menu is open (see `toolbar`).
+    menu_open: bool,
     undo: Vec<EditState>,
 }
 
@@ -420,8 +423,16 @@ impl ToolHandler for TextTool {
     }
 
     fn press(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
+        if ev.button == Some(Button::Right) {
+            toolbar::open_context_menu(st, ev.image);
+            return Ok(());
+        }
         if ev.button != Some(Button::Left) {
             return Ok(());
+        }
+        // Any left press dismisses the context menu.
+        if let Some(s) = st.text.as_mut() {
+            s.menu_open = false;
         }
         if let (Some(sess), Pos::SelectionHandle(h)) = (st.text.as_ref(), ev.pos) {
             let _ = sess;
@@ -502,6 +513,7 @@ impl ToolHandler for TextTool {
         }
         let shift = mods.shift;
         match key {
+            Key::Escape if toolbar::menu_is_open(st) => toolbar::close_context_menu(st),
             Key::Escape => commit_frame(st),
             Key::Char(c) if !c.is_control() => {
                 edit(st, |s| {
@@ -628,7 +640,7 @@ fn create_frame(st: &mut State, start: (i32, i32), end: (i32, i32)) {
     } else {
         rect_from_corners(clamp(start), clamp(end))
     };
-    st.text = Some(TextSession { rect, chars: Vec::new(), cursor: 0, anchor: None, undo: Vec::new() });
+    st.text = Some(TextSession { rect, chars: Vec::new(), cursor: 0, anchor: None, menu_open: false, undo: Vec::new() });
 }
 
 #[cfg(test)]
