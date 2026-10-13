@@ -30,6 +30,9 @@ impl State {
     }
 
     fn render_workspace(&self) -> Image {
+        if let Some(preview) = crate::features::file_print::render_preview(self) {
+            return preview;
+        }
         let comp = self.render_composite();
         let (ww, wh) = self.workspace_size;
         let mut out = Image { width: ww, height: wh, pixels: vec![WORKSPACE_GREY; ww as usize * wh as usize] };

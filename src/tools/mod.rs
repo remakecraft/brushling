@@ -109,6 +109,10 @@ impl State {
         if !self.dialogs.is_empty() {
             return Ok(());
         }
+        // Print Preview replaces the workspace: the canvas gets no pointer input.
+        if crate::features::file_print::preview_active(self) {
+            return Ok(());
+        }
         // View Bitmap: a button press ends the full-screen view and nothing else.
         if crate::features::view_view_bitmap::swallow(self, matches!(kind, PointerKind::Press(_))) {
             return Ok(());
@@ -205,6 +209,10 @@ impl State {
                 Key::Enter => self.dialog_enter(),
                 _ => Ok(()),
             };
+        }
+        if crate::features::file_print::preview_active(self) {
+            crate::features::file_print::preview_key(self, key);
+            return Ok(());
         }
         // View Bitmap: any key press ends the full-screen view and nothing else.
         if crate::features::view_view_bitmap::swallow(self, true) {
