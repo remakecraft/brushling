@@ -166,7 +166,7 @@ fn separator() -> MenuItem {
 }
 
 fn command_enabled(st: &State, path: &str) -> bool {
-    registry().command_for(path).and_then(|c| c.enabled).is_none_or(|f| f(st))
+    crate::features::ui_menu_enable_state::enabled(st, path)
 }
 
 fn build(st: &State, parent: &str, e: &Entry) -> MenuItem {

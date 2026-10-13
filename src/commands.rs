@@ -29,7 +29,7 @@ impl State {
         if !self.dialogs.is_empty() || self.exit_code.is_some() || self.view_bitmap {
             return Ok(());
         }
-        if cmd.enabled.is_some_and(|f| !f(self)) {
+        if !crate::features::ui_menu_enable_state::enabled(self, path) {
             return Ok(());
         }
         (cmd.run)(self)

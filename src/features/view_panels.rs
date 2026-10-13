@@ -99,7 +99,8 @@ fn floating_at(st: &State, panel: Panel) -> Option<(i32, i32)> {
 /// `App::panel`.
 pub fn panel_state(st: &State, panel: Panel) -> HResult<PanelState> {
     if panel == Panel::Help {
-        return Err(HarnessError::Unbuilt("help.help_about"));
+        let visible = crate::features::help_help_about::help_visible(st);
+        return Ok(PanelState { visible, floating_at: None });
     }
     Ok(PanelState { visible: visible(st, panel), floating_at: floating_at(st, panel) })
 }
@@ -152,7 +153,7 @@ pub fn place(st: &mut State, panel: Panel, at: Option<(i32, i32)>) -> HResult<()
         Panel::TextToolbar => st.panels.text_toolbar = at,
         Panel::Thumbnail => st.panels.thumbnail_at = at.unwrap_or_else(|| default_thumbnail_at(st.screen)),
         Panel::StatusBar => return Err(HarnessError::Invalid("the status bar cannot be moved".to_owned())),
-        Panel::Help => return Err(HarnessError::Unbuilt("help.help_about")),
+        Panel::Help => return Err(HarnessError::Invalid("the Help window is not a dockable panel".to_owned())),
     }
     mw::refresh_workspace(st);
     Ok(())
@@ -166,7 +167,10 @@ pub fn close(st: &mut State, panel: Panel) -> HResult<()> {
             Ok(())
         }
         Panel::StatusBar => Err(HarnessError::Invalid("the status bar has no close button".to_owned())),
-        Panel::Help => Err(HarnessError::Unbuilt("help.help_about")),
+        Panel::Help => {
+            crate::features::help_help_about::close_help(st);
+            Ok(())
+        }
     }
 }
 

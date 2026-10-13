@@ -159,3 +159,17 @@ fn layer(st: &State, img: &mut Image) {
         }
     }
 }
+
+/// Esc during a handle drag: the picture, size and history go back to what
+/// they were at the press. True when a drag was in progress.
+pub fn cancel_drag(st: &mut State) -> bool {
+    if !on_handle_gesture(st) {
+        return false;
+    }
+    let Some(drag) = st.canvas_drag.take() else { return false };
+    st.doc.restore(drag.base);
+    st.doc.undo = drag.undo;
+    st.doc.redo = drag.redo;
+    st.doc.dirty = drag.dirty;
+    true
+}

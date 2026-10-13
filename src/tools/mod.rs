@@ -213,12 +213,18 @@ impl State {
         if self.exit_code.is_none() && self.menu_key(key, mods)? {
             return Ok(());
         }
+        if key == Key::Escape {
+            // Cancels the gesture in progress, then the tool's own Esc.
+            crate::features::input_escape::escape(self, mods)?;
+            return Ok(());
+        }
         if let Some(h) = registry().tool_handler(self.tool) {
             if h.key(self, key, mods)? {
                 return Ok(());
             }
         }
-        if let Some(path) = registry().shortcut_for(key, mods) {
+        // A shortcut whose command no feature has registered yet does nothing.
+        if let Some(path) = registry().shortcut_for(key, mods).filter(|p| registry().command_for(p).is_some()) {
             return self.menu(path);
         }
         Ok(())

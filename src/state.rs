@@ -129,6 +129,11 @@ pub struct State {
     pub text_style: crate::features::tool_text::TextStyle,
     /// View > Text Toolbar check state (shown by default).
     pub text_toolbar: bool,
+    // ----- help.help_about / input.escape
+    /// The Help Topics window is open.
+    pub help_open: bool,
+    /// Document and selection as they were at the press of a selection gesture (Esc restores them).
+    pub esc_base: Option<crate::features::input_escape::EscBase>,
     // ----- file.save_changes_prompt
     /// The action waiting for the save-changes question to be answered.
     pub pending_action: Option<crate::features::file_save_changes_prompt::Pending>,
@@ -223,6 +228,8 @@ impl State {
             text_drag: None,
             text_style: Default::default(),
             text_toolbar: true,
+            help_open: false,
+            esc_base: None,
             pending_action: None,
             after_save: None,
             attr_draft: Default::default(),
