@@ -152,6 +152,11 @@ pub struct State {
     /// and its modifiers, for the status bar.
     pub ptr_image: Option<(i32, i32)>,
     pub ptr_mods: Mods,
+    // ----- file.print
+    /// Page Setup choices; they last for the session only.
+    pub page_setup: crate::features::file_print::PageSetup,
+    /// Print Preview: the 1-based current page while the preview is shown.
+    pub print_preview: Option<u32>,
 }
 
 impl State {
@@ -214,6 +219,8 @@ impl State {
             hover_since: 0,
             ptr_image: None,
             ptr_mods: Mods::default(),
+            page_setup: Default::default(),
+            print_preview: None,
         })
     }
 
@@ -238,6 +245,7 @@ impl State {
         self.airbrush = Default::default();
         self.canvas_drag = None;
         self.mag_hover = None;
+        self.print_preview = None;
         crate::features::view_zoom::clamp_scroll(self);
     }
 
