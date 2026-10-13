@@ -67,6 +67,11 @@ pub fn set_window_size(st: &mut State, w: u32, h: u32) {
     refresh_workspace(st);
 }
 
+/// Move the window; the position is remembered across restarts.
+pub fn set_window_pos(st: &mut State, x: i32, y: i32) {
+    st.window_pos = (x, y);
+}
+
 /// Recompute the workspace size from the current layout (window size and the
 /// docked bars) and keep the scroll offset inside the canvas.
 pub fn refresh_workspace(st: &mut State) {

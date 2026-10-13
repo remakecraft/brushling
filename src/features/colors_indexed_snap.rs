@@ -1,8 +1,10 @@
 //! Feature colors.indexed_snap: in an image with its own palette every
 //! colour written to the document is first replaced by the nearest palette
 //! entry (squared RGB distance, ties to the lowest index). The rule is applied
-//! in `Document::put`, which every tool and command paints through; the
-//! black-and-white threshold rule of image.attributes takes precedence there.
+//! in `Document::snap` (via `Document::paint`), which every tool and command
+//! paints through; `Document::put` places a colour raw, for moved or copied
+//! pixels. The black-and-white threshold rule of image.attributes takes
+//! precedence. Fills with the background colour use `State::bg_snapped`.
 
 use crate::registry::Registry;
 use crate::types::Rgb;

@@ -3,11 +3,12 @@
 //! - Message: the idle text, or a one-line description of the highlighted
 //!   menu item / tool button (`State::hover`).
 //! - Position: `x,y` of the image pixel under the pointer; empty off the
-//!   canvas. The pointer is tracked by a hook that sees every pointer event;
-//!   the screen-to-image mapping (zoom, scroll) is `State::image_point`, which
-//!   is where `ev.image` comes from.
-//! - Size: `w,h` while a shape or selection is dragged out, or the new canvas
-//!   size while a resize handle is dragged; empty otherwise.
+//!   canvas. `State::pointer` records it (`ptr_image`) for every pointer
+//!   event before the hooks run; the screen-to-image mapping (zoom, scroll)
+//!   is `State::image_point`.
+//! - Size: `w,h` while a shape or selection is dragged out, the selection's
+//!   size while it is moved or resized, or the new canvas size while a canvas
+//!   handle is dragged; empty otherwise.
 
 use crate::features::canvas_resize_handle::drag_size_text;
 use crate::features::ui_main_window::panel_visible;
@@ -25,11 +26,10 @@ pub fn register(r: &mut Registry) {
     r.pointer_hook(track_pointer);
 }
 
-/// Remember where the pointer is. Never consumes the event. Any pointer
-/// activity means the pointer has left the tool box / menu.
-fn track_pointer(st: &mut State, ev: &PointerEvent) -> HResult<bool> {
-    st.ptr_image = ev.image;
-    st.ptr_mods = ev.mods;
+/// Never consumes the event. Any pointer activity means the pointer has left
+/// the tool box / menu. (The pointer position itself is tracked by
+/// `State::pointer`, ahead of every hook.)
+fn track_pointer(st: &mut State, _ev: &PointerEvent) -> HResult<bool> {
     if st.hover != Hover::Nothing {
         st.hover = Hover::Nothing;
         st.hover_since = st.now_ms;
@@ -71,7 +71,7 @@ fn size(st: &State) -> String {
         return t;
     }
     let Some(held) = st.held.filter(|h| !h.cancelled) else { return String::new() };
-    if let Some(SelGesture::Resize { .. }) = st.sel_gesture {
+    if let Some(SelGesture::Resize { .. } | SelGesture::Move { .. }) = st.sel_gesture {
         if let Some(sel) = &st.sel {
             return format!("{},{}", sel.bounds.width(), sel.bounds.height());
         }

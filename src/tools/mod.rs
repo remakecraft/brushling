@@ -121,6 +121,11 @@ impl State {
         if let Some(p) = image {
             self.pointer_image = Some(p);
         }
+        // The status bar's pointer tracker is updated before any hook runs, so
+        // hooks that consume the event (selection and handle drags) cannot
+        // freeze the position pane. It is cleared off the canvas.
+        self.ptr_image = image;
+        self.ptr_mods = mods;
         let mut ev = PointerEvent { pos, image, button: None, mods, double_click: false };
         match kind {
             PointerKind::Press(b) => {
@@ -274,6 +279,15 @@ mod tests {
         assert!(!st.register_press(Pos::Image(5, 5), Button::Left));
         st.now_ms = 1400;
         assert!(!st.register_press(Pos::Image(50, 5), Button::Left));
+    }
+
+    #[test]
+    fn pointer_position_is_tracked_before_hooks_and_cleared_off_canvas() {
+        let mut st = state();
+        st.pointer(PointerKind::Move, Pos::Image(3, 4), Mods::NONE).unwrap();
+        assert_eq!(st.ptr_image, Some((3, 4)));
+        st.pointer(PointerKind::Move, Pos::Outside, Mods::NONE).unwrap();
+        assert_eq!(st.ptr_image, None);
     }
 
     #[test]

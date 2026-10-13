@@ -112,6 +112,8 @@ fn handle(st: &mut State, od: &mut OpenDialog, action: DialogAction<'_>) -> HRes
                     f.enabled = true;
                 }
                 od.dialog.buttons.insert(1, ADD.to_owned());
+                // The dialog is open as wide as it gets: the button greys out.
+                od.disabled_buttons.push(EXPAND.to_owned());
             }
             Ok(Outcome::Keep)
         }

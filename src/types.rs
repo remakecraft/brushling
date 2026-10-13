@@ -608,7 +608,19 @@ pub struct StartOptions {
     pub args: Vec<String>,
     /// Primary screen size; the primary screen's top-left is (0,0).
     pub screen: (u32, u32),
+    /// Further connected screens (position and size in virtual-desktop
+    /// coordinates); empty for a single-screen machine.
+    pub extra_screens: Vec<ScreenRect>,
     pub services: Services,
+}
+
+/// A connected screen in virtual-desktop coordinates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScreenRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl StartOptions {
@@ -618,6 +630,7 @@ impl StartOptions {
             config_dir: config_dir.into(),
             args: Vec::new(),
             screen: (1920, 1080),
+            extra_screens: Vec::new(),
             services: Services::default(),
         }
     }

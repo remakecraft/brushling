@@ -72,7 +72,7 @@ impl Raster {
 /// The raster a command works on: the selection's content (pixels outside
 /// its mask read as `bg`) or the whole image.
 fn target_raster(st: &State) -> Raster {
-    let bg = st.bg;
+    let bg = st.bg_snapped();
     match st.sel.as_ref() {
         None => Raster {
             width: st.doc.width,
@@ -103,7 +103,7 @@ fn target_raster(st: &State) -> Raster {
 /// fail (e.g. result too large); nothing changes then. The result must have
 /// `width * height` pixels and mask bits and a size within the document limits.
 pub fn with_target_pixels(st: &mut State, f: impl FnOnce(Raster, Rgb) -> HResult<Raster>) -> HResult<()> {
-    let out = f(target_raster(st), st.bg)?;
+    let out = f(target_raster(st), st.bg_snapped())?;
     check_size(out.width, out.height)?;
     let n = out.width as usize * out.height as usize;
     if out.pixels.len() != n || out.mask.len() != n {
@@ -114,13 +114,16 @@ pub fn with_target_pixels(st: &mut State, f: impl FnOnce(Raster, Rgb) -> HResult
         st.doc.width = out.width;
         st.doc.height = out.height;
         st.doc.pixels = out.pixels;
+        crate::features::ui_main_window::refresh_workspace(st);
         return Ok(());
     }
     st.lift_selection(true);
     if let Some(sel) = st.sel.as_mut() {
         let b = sel.bounds;
         sel.bounds = Rect::new(b.x0, b.y0, b.x0 + out.width as i32 - 1, b.y0 + out.height as i32 - 1);
-        sel.mask = out.mask;
+        // Pixels that were outside a free-form mask are background by now, so
+        // the transformed block is whole: the mask no longer excludes anything.
+        sel.mask = vec![true; n];
         sel.floating = Some(out.pixels);
     }
     Ok(())
@@ -159,3 +162,51 @@ pub fn map_target_pixels(st: &mut State, mut f: impl FnMut(Rgb) -> Rgb) {
 }
 
 pub fn register(_r: &mut crate::registry::Registry) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::Settings;
+
+    fn state() -> State {
+        let dir = std::env::temp_dir().join(format!("brushling-scope-{}", std::process::id()));
+        State::new(Settings::load(&dir), Services::default(), (1920, 1080)).unwrap()
+    }
+
+    /// A 2x2 free-form selection that leaves the bottom-right pixel out.
+    fn select_l_shape(st: &mut State) {
+        st.doc = crate::doc::Document::new(4, 4, Rgb::W).unwrap();
+        st.bg = Rgb::new(10, 20, 30);
+        for (x, y, c) in [(0, 0, Rgb::R), (1, 0, Rgb::G), (0, 1, Rgb::B), (1, 1, Rgb::K)] {
+            st.doc.put(x, y, c);
+        }
+        let b = Rect::new(0, 0, 1, 1);
+        st.sel = Some(crate::selection::Sel { bounds: b, mask: vec![true, true, true, false], floating: None, origin: b });
+    }
+
+    #[test]
+    fn transformed_free_form_selection_is_whole_with_background_outside_the_mask() {
+        let mut st = state();
+        select_l_shape(&mut st);
+        with_target_pixels(&mut st, |r, bg| Ok(r.remap(2, 2, bg, |x, y| Some((1 - x, y))))).unwrap();
+        let sel = st.sel.as_ref().unwrap();
+        assert_eq!(sel.mask, vec![true; 4]);
+        // The excluded pixel (1,1) mirrors to (0,1) and reads as background.
+        assert_eq!(sel.floating.as_deref(), Some(&[Rgb::G, Rgb::R, st.bg, Rgb::B][..]));
+    }
+
+    #[test]
+    fn background_fill_follows_the_snapping_rule() {
+        let mut st = state();
+        select_l_shape(&mut st);
+        st.doc.color_mode = ColorMode::BlackAndWhite;
+        st.bg = Rgb::new(200, 0, 0);
+        let snapped = st.bg_snapped();
+        assert_eq!(snapped, Rgb::K);
+        with_target_pixels(&mut st, |r, bg| Ok(r.remap(3, 3, bg, |_, _| None))).unwrap();
+        let floating = st.sel.as_ref().and_then(|s| s.floating.clone()).unwrap();
+        assert!(floating.iter().all(|c| *c == snapped));
+        // Lifting cleared the source with the snapped colour as well.
+        assert_eq!(st.doc.get(0, 0), Some(snapped));
+    }
+}

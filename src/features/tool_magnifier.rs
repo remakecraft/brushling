@@ -1,8 +1,8 @@
 //! Feature tool.magnifier. At 100% the pointer over the canvas shows a
 //! rectangle of floor(view / 4) image pixels per axis; a click (either
-//! button) zooms to 400% with that rectangle's top-left at the view's
-//! top-left and re-selects the previous tool. A click while zoomed returns to
-//! 100%. The level options live in `tools::set_tool_option`.
+//! button, acting on release over the canvas) zooms to 400% with that
+//! rectangle's top-left at the view's top-left and re-selects the previous
+//! tool. A click while zoomed returns to 100%. The level options live in `tools::set_tool_option`.
 //! Nothing here touches pixels or undo.
 
 use crate::features::view_zoom::{image_to_screen, set_zoom_at, LARGE_ZOOM};

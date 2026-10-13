@@ -60,6 +60,8 @@ pub struct State {
     pub settings: Settings,
     pub services: Services,
     pub screen: (u32, u32),
+    /// Every connected screen, the primary one (at 0,0) first.
+    pub screens: Vec<ScreenRect>,
     pub platform_calls: Vec<PlatformCall>,
     pub rng: Rng,
     /// Virtual clock in milliseconds; advances only through `advance`.
@@ -159,6 +161,9 @@ pub struct State {
     // ----- ui.main_window / ui.status_bar / tools.toolbox
     /// Requested client size of the main window (clamped to the minimum on read).
     pub window: (u32, u32),
+    /// Top-left of the main window on the virtual desktop (remembered; the
+    /// headless window is only moved through `set_window_pos`).
+    pub window_pos: (i32, i32),
     /// Where the pointer rests: a tool button, a highlighted menu item or nothing.
     pub hover: Hover,
     /// Virtual time at which `hover` last changed (tooltip delay).
@@ -183,6 +188,11 @@ pub struct State {
 
 impl State {
     pub fn new(settings: Settings, services: Services, screen: (u32, u32)) -> HResult<State> {
+        State::with_screens(settings, services, screen, &[])
+    }
+
+    /// Like [`State::new`] on a machine that also has the `extra` screens.
+    pub fn with_screens(settings: Settings, services: Services, screen: (u32, u32), extra: &[ScreenRect]) -> HResult<State> {
         let (w, h) = settings.new_size().unwrap_or(DEFAULT_SIZE);
         let mut st = State {
             doc: Document::new(w, h, Rgb::W)?,
@@ -196,6 +206,9 @@ impl State {
             settings,
             services,
             screen,
+            screens: std::iter::once(ScreenRect { x: 0, y: 0, width: screen.0, height: screen.1 })
+                .chain(extra.iter().copied())
+                .collect(),
             platform_calls: Vec::new(),
             rng: Rng::new(0x5EED),
             now_ms: 0,
@@ -244,6 +257,7 @@ impl State {
             custom_colors: [Rgb::W; 16],
             custom_next: 0,
             window: crate::features::ui_main_window::default_window(),
+            window_pos: (0, 0),
             hover: Hover::Nothing,
             hover_since: 0,
             ptr_image: None,
@@ -283,7 +297,7 @@ impl State {
         self.canvas_drag = None;
         self.mag_hover = None;
         self.print_preview = None;
-        crate::features::view_zoom::clamp_scroll(self);
+        crate::features::ui_main_window::refresh_workspace(self);
     }
 
     /// The size File > New creates: the confirmed Attributes size, else the
@@ -341,6 +355,13 @@ impl State {
             }
             Pos::Outside | Pos::CanvasHandle(_) | Pos::SelectionHandle(_) => None,
         }
+    }
+
+    /// The background colour as a paint operation writes it: snapped to the
+    /// black-and-white or palette rule of the document (colors.indexed_snap).
+    /// Fills use this; moved or copied pixels stay raw.
+    pub fn bg_snapped(&self) -> Rgb {
+        self.doc.snap(self.bg)
     }
 
     /// Approximate screen-pixel position of a pointer position, for the

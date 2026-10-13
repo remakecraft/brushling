@@ -123,7 +123,6 @@ pub fn registry() -> &'static Registry {
     static REGISTRY: OnceLock<Registry> = OnceLock::new();
     REGISTRY.get_or_init(|| {
         let mut r = Registry::default();
-        crate::commands::register_core(&mut r);
         crate::features::register_all(&mut r);
         r
     })
