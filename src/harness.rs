@@ -275,13 +275,13 @@ impl App {
 
     /// Current system clipboard content.
     pub fn clipboard(&self) -> HResult<ClipboardContent> {
-        Err(HarnessError::Unbuilt("edit.clipboard"))
+        Ok(self.st.clipboard.clone())
     }
 
     /// Place content on the system clipboard as another program would.
     pub fn set_clipboard(&mut self, content: ClipboardContent) -> HResult<()> {
-        let _ = content;
-        Err(HarnessError::Unbuilt("edit.clipboard"))
+        self.st.clipboard = content;
+        Ok(())
     }
 
     // ----- tools.toolbox
