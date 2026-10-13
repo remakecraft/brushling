@@ -166,10 +166,11 @@ impl State {
     }
 
     /// Whether a floating pixel of colour `c` is drawn: always in opaque
-    /// mode, but background-coloured pixels are skipped in transparent mode
-    /// (selection.transparency). Text frames use the same rule.
+    /// mode, but pixels exactly equal (tolerance 0) to the raw current
+    /// background colour are skipped in transparent mode
+    /// (selection.transparency B3). Text frames use the same rule.
     pub fn draws_floating(&self, c: Rgb) -> bool {
-        self.options.opaque || c != self.bg_snapped()
+        self.options.opaque || c != self.bg
     }
 
     /// Write the floating pixels of the masked area into the image where they
@@ -178,7 +179,7 @@ impl State {
     pub fn stamp_selection(&mut self) {
         let Some(sel) = self.sel.as_ref() else { return };
         let Some(px) = sel.floating.as_ref() else { return };
-        let (opaque, bg) = (self.options.opaque, self.bg_snapped());
+        let (opaque, bg) = (self.options.opaque, self.bg);
         let b = sel.bounds;
         let w = b.width() as usize;
         for y in b.y0..=b.y1 {
@@ -317,4 +318,35 @@ pub fn workspace_layer(st: &State, img: &mut Image) {
 pub fn register(r: &mut Registry) {
     r.composite_layer(composite_layer);
     r.workspace_layer(workspace_layer);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::Settings;
+
+    /// selection.transparency B3: the comparison uses the raw background
+    /// colour, not the palette-snapped one a fill would write.
+    #[test]
+    fn transparent_floating_compares_against_raw_background() {
+        let dir = std::env::temp_dir().join(format!("brushling-selection-{}", std::process::id()));
+        let mut st = State::new(Settings::load(&dir), Services::default(), (1920, 1080)).unwrap();
+        let mut doc = crate::doc::Document::new(4, 4, Rgb::W).unwrap();
+        doc.palette = Some(vec![Rgb::K, Rgb::W]);
+        st.replace_document(doc);
+        st.bg = Rgb::R;
+        st.options.opaque = false;
+        assert_ne!(st.bg_snapped(), st.bg, "snapping must change red for this test to mean anything");
+        assert!(!st.draws_floating(Rgb::R), "red is see-through");
+        assert!(st.draws_floating(Rgb::K), "black is drawn");
+
+        let b = Rect { x0: 0, y0: 0, x1: 1, y1: 0 };
+        let mut sel = Sel::new(b, vec![true, true]);
+        sel.floating = Some(vec![Rgb::R, Rgb::K]);
+        sel.origin = b;
+        st.sel = Some(sel);
+        st.stamp_selection();
+        assert_eq!(st.doc.get(0, 0), Some(Rgb::W));
+        assert_eq!(st.doc.get(1, 0), Some(Rgb::K));
+    }
 }
