@@ -88,6 +88,13 @@ const BTN_ZOOM_OUT: &str = "Zoom Out";
 const BTN_CLOSE: &str = "Close";
 
 fn preview_command(st: &mut State) -> HResult<()> {
+    // The preview takes over input, so a held press can never be released
+    // on the canvas: cancel it (pixels restored) and settle the gesture, so
+    // Close finds the image unchanged and no tool keeps ticking.
+    crate::features::input_escape::cancel_gesture(st);
+    st.held = None;
+    st.stroke_base = None;
+    st.airbrush = Default::default();
     st.print_preview = Some(1);
     st.preview_zoom = PREVIEW_START_ZOOM;
     Ok(())
@@ -179,10 +186,14 @@ pub(crate) fn render_preview(st: &State) -> Option<Image> {
     let (x0, y0) = (col * pw, row * ph);
     let (slice_w, slice_h) = (pw.min(st.doc.width - x0), ph.min(st.doc.height - y0));
     let (ml, mt) = (scaled(ps.left), scaled(ps.top));
+    // The page shows the composite, so floating content prints too. At 100%
+    // and 200% the sheet is larger than the workspace; it is clipped to the
+    // workspace (`put`) rather than scrolled, the simpler of the two options.
+    let comp = st.render_composite();
     for dy in 0..u64::from(slice_h) * zoom / 100 {
         for dx in 0..u64::from(slice_w) * zoom / 100 {
             let (sx, sy) = (x0 + (dx * 100 / zoom) as u32, y0 + (dy * 100 / zoom) as u32);
-            if let Some(c) = st.doc.get(sx as i32, sy as i32) {
+            if let Some(c) = comp.get(sx as i32, sy as i32) {
                 put(ml + dx, mt + dy, c);
             }
         }
@@ -193,23 +204,45 @@ pub(crate) fn render_preview(st: &State) -> Option<Image> {
 // ----- Print
 
 fn print_command(st: &mut State) -> HResult<()> {
+    open_print_dialog(st, print_dialog);
+    Ok(())
+}
+
+/// Help > Options > Print: the same Print dialog, but the shown topic goes
+/// out as one page whatever the document needs.
+pub(crate) fn print_topic_command(st: &mut State) -> HResult<()> {
+    open_print_dialog(st, print_topic_dialog);
+    Ok(())
+}
+
+fn open_print_dialog(st: &mut State, handler: crate::dialogs::DialogFn) {
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::Print,
         title: "Print".into(),
         text: String::new(),
         buttons: vec!["OK".into(), "Cancel".into()],
         fields: Vec::new(),
     };
-    st.open_dialog(OpenDialog::new(dialog, print_dialog));
-    Ok(())
+    st.open_dialog(OpenDialog::new(dialog, handler));
 }
 
-fn print_dialog(st: &mut State, _od: &mut OpenDialog, action: DialogAction<'_>) -> HResult<Outcome> {
+fn print_dialog(st: &mut State, od: &mut OpenDialog, action: DialogAction<'_>) -> HResult<Outcome> {
+    let pages = page_count(st);
+    send_to_printer(st, od, action, pages)
+}
+
+fn print_topic_dialog(st: &mut State, od: &mut OpenDialog, action: DialogAction<'_>) -> HResult<Outcome> {
+    send_to_printer(st, od, action, 1)
+}
+
+/// The Print dialog's reaction: OK sends `pages` pages to the printer (or
+/// reports there is none), Cancel closes.
+fn send_to_printer(st: &mut State, _od: &mut OpenDialog, action: DialogAction<'_>, pages: u32) -> HResult<Outcome> {
     match action {
         DialogAction::Set { field, .. } => Err(HarnessError::Invalid(format!("Print dialog has no field {field:?}"))),
         DialogAction::Click("OK") => {
             if st.services.printer {
-                let pages = page_count(st);
                 st.record_call(PlatformCall::Print { pages });
             } else {
                 st.error_box("No printer is installed.");
@@ -225,6 +258,7 @@ fn print_dialog(st: &mut State, _od: &mut OpenDialog, action: DialogAction<'_>) 
 fn page_setup_command(st: &mut State) -> HResult<()> {
     let ps = &st.page_setup;
     let dialog = Dialog {
+        disabled_buttons: Vec::new(),
         kind: DialogKind::PageSetup,
         title: "Page Setup".into(),
         text: String::new(),
@@ -376,5 +410,24 @@ mod tests {
         a.preview_click("Print...").unwrap();
         a.dialog_click("OK").unwrap();
         assert_eq!(a.platform_calls().unwrap(), [PlatformCall::Print { pages: 3 }]);
+    }
+
+    #[test]
+    fn preview_settles_a_held_airbrush_gesture() {
+        let mut a = app("held", 100, 100);
+        a.set_colors(Rgb::new(0, 0, 0), Rgb::new(255, 255, 255)).unwrap();
+        a.select_tool(crate::Tool::Airbrush).unwrap();
+        let before = a.document().unwrap();
+        a.pointer(PointerKind::Press(crate::Button::Left), crate::Pos::Image(50, 50), Mods::NONE).unwrap();
+        a.menu("File > Print Preview").unwrap();
+        a.pointer(PointerKind::Release(crate::Button::Left), crate::Pos::Image(50, 50), Mods::NONE).unwrap();
+        a.advance(1000).unwrap();
+        a.preview_click("Close").unwrap();
+        let white = Rgb::new(255, 255, 255);
+        assert!((0..100).all(|y| (0..100).all(|x| a.pixel(x, y).unwrap() == white)), "image changed");
+        assert_eq!(a.document().unwrap().dirty, before.dirty);
+        // Nothing keeps spraying after Close.
+        a.advance(1000).unwrap();
+        assert!((0..100).all(|y| (0..100).all(|x| a.pixel(x, y).unwrap() == white)), "tool still ticking");
     }
 }

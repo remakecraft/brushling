@@ -21,7 +21,7 @@ impl State {
         }
     }
 
-    fn render_composite(&self) -> Image {
+    pub(crate) fn render_composite(&self) -> Image {
         let mut img = self.doc.image();
         for layer in registry().composite_layers() {
             layer(self, &mut img);

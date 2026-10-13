@@ -246,7 +246,8 @@ impl State {
     /// Advance the virtual clock and let the active tool react.
     pub fn advance(&mut self, ms: u64) -> HResult<()> {
         self.now_ms = self.now_ms.saturating_add(ms);
-        if !self.dialogs.is_empty() {
+        // Dialogs and the Print Preview take over input; the tool is idle.
+        if !self.dialogs.is_empty() || crate::features::file_print::preview_active(self) {
             return Ok(());
         }
         match registry().tool_handler(self.tool) {
