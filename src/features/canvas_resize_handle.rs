@@ -1,15 +1,14 @@
 //! Feature canvas.resize_handle: three handles outside the canvas (bottom-right
 //! corner, right-edge midpoint, bottom-edge midpoint). Dragging one sets the
 //! size on the axes it changes to the pointer's image coordinate (clamped to
-//! 1..=9999), cropping at the right/bottom and filling new area with the
-//! background colour. A pointer hook cannot tell a move from the release, so
-//! the document is resized live from the picture captured at the press; the
-//! drag ends with the pointer button (`State::held`). It is one undo step, and
-//! a net change of zero leaves no step and no dirty flag. While dragging, a
-//! dashed outline shows the new size and the status bar size pane reads `W,H`
-//! (see [`drag_size_text`]).
+//! 1..=9999). While the button is held only the dragged size and a dashed
+//! outline change (the document is untouched); on release the canvas is
+//! cropped at the right/bottom or extended there with the background colour
+//! as it is at that moment. The release is one undo step, and a net change of
+//! zero leaves no step and no dirty flag. The status bar size pane reads `W,H`
+//! while dragging (see [`drag_size_text`]).
 
-use crate::doc::{Snapshot, MAX_DIM};
+use crate::doc::MAX_DIM;
 use crate::features::image_attributes::resized_pixels;
 use crate::registry::Registry;
 use crate::render::CANVAS_MARGIN;
@@ -22,16 +21,11 @@ pub fn register(r: &mut Registry) {
     r.workspace_layer(layer);
 }
 
-/// A handle drag in progress, with what it needs to redo the resize from
-/// scratch on every move.
+/// A handle drag in progress.
 #[derive(Debug, Clone)]
 pub struct CanvasDrag {
     handle: CanvasHandle,
-    base: Snapshot,
-    undo: Vec<Snapshot>,
-    redo: Vec<Snapshot>,
-    dirty: bool,
-    /// The size the document has right now.
+    /// The size the canvas will get on release.
     size: (u32, u32),
 }
 
@@ -64,14 +58,7 @@ fn hook(st: &mut State, ev: &PointerEvent) -> HResult<bool> {
         if ev.button == Some(Button::Left) {
             // Floating content is committed before the canvas changes.
             st.end_selection();
-            st.canvas_drag = Some(CanvasDrag {
-                handle,
-                base: st.doc.snapshot(),
-                undo: st.doc.undo.clone(),
-                redo: st.doc.redo.clone(),
-                dirty: st.doc.dirty,
-                size: (st.doc.width, st.doc.height),
-            });
+            st.canvas_drag = Some(CanvasDrag { handle, size: (st.doc.width, st.doc.height) });
         }
         return Ok(true);
     }
@@ -80,35 +67,36 @@ fn hook(st: &mut State, ev: &PointerEvent) -> HResult<bool> {
         st.canvas_drag = None;
         return Ok(false);
     }
-    let Some(drag) = st.canvas_drag.take() else { return Ok(true) };
-    let drag = match ev.image {
-        Some(at) => update(st, drag, at),
-        None => drag,
-    };
-    st.canvas_drag = Some(drag);
+    let Some(mut drag) = st.canvas_drag.take() else { return Ok(true) };
+    if let Some(at) = ev.image {
+        drag.size = dragged_size(&drag, st, at);
+    }
+    // The drag ends with the release, which applies the size once and
+    // forgets the gesture.
+    if matches!(st.ptr_kind, Some(PointerKind::Release(_))) {
+        apply(st, drag.size);
+    } else {
+        st.canvas_drag = Some(drag);
+    }
     Ok(true)
 }
 
-/// Re-derive the document from the press-time picture for pointer `at`.
-fn update(st: &mut State, mut drag: CanvasDrag, at: (i32, i32)) -> CanvasDrag {
-    let b = &drag.base;
-    let w = if changes_width(drag.handle) { clamp_dim(at.0) } else { b.width };
-    let h = if changes_height(drag.handle) { clamp_dim(at.1) } else { b.height };
-    // Back to the picture and history as they were at the press.
-    st.doc.undo.clone_from(&drag.undo);
-    st.doc.redo.clone_from(&drag.redo);
-    st.doc.dirty = drag.dirty;
-    st.doc.width = b.width;
-    st.doc.height = b.height;
-    st.doc.pixels.clone_from(&b.pixels);
-    if (w, h) != (b.width, b.height) {
-        st.doc.push_undo();
-        st.doc.pixels = resized_pixels(&b.pixels, b.width, b.height, w, h, st.bg);
-        st.doc.width = w;
-        st.doc.height = h;
+/// The size a drag to image point `at` asks for.
+fn dragged_size(drag: &CanvasDrag, st: &State, at: (i32, i32)) -> (u32, u32) {
+    let w = if changes_width(drag.handle) { clamp_dim(at.0) } else { st.doc.width };
+    let h = if changes_height(drag.handle) { clamp_dim(at.1) } else { st.doc.height };
+    (w, h)
+}
+
+/// Resize the document to `size` as one undo step (none when unchanged).
+fn apply(st: &mut State, (w, h): (u32, u32)) {
+    if (w, h) == (st.doc.width, st.doc.height) {
+        return;
     }
-    drag.size = (w, h);
-    drag
+    st.doc.push_undo();
+    st.doc.pixels = resized_pixels(&st.doc.pixels, st.doc.width, st.doc.height, w, h, st.bg);
+    st.doc.width = w;
+    st.doc.height = h;
 }
 
 // ----- workspace drawing
@@ -146,10 +134,9 @@ fn layer(st: &State, img: &mut Image) {
             }
         }
     }
-    // Dashed outline of the size being dragged.
-    if st.canvas_drag.is_some() && on_handle_gesture(st) {
-        let (x0, y0) = to_screen(st, 0, 0);
-        let (x1, y1) = to_screen(st, w, h);
+    // Dashed outline of the size being dragged (right and bottom sides).
+    if let Some(d) = st.canvas_drag.as_ref().filter(|_| on_handle_gesture(st)) {
+        let (x1, y1) = to_screen(st, d.size.0 as i64, d.size.1 as i64);
         let dash = |i: i64| if i / 2 % 2 == 0 { Rgb::K } else { Rgb::W };
         for i in 0..=(x1 - x0) {
             put(img, x0 + i, y1, dash(i));
