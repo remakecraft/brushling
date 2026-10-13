@@ -121,6 +121,12 @@ pub struct State {
     pub pending_action: Option<crate::features::file_save_changes_prompt::Pending>,
     /// The action to continue once the save started by the prompt succeeds.
     pub after_save: Option<crate::features::file_save_changes_prompt::Pending>,
+    // ----- image.attributes / canvas.resize_handle
+    /// Pixel size behind the open Attributes dialog (units only change display).
+    pub attr_draft: crate::features::image_attributes::AttrDraft,
+    /// A canvas resize-handle drag (live: the document already shows the
+    /// size a release would keep). Only active while `held` is set.
+    pub canvas_drag: Option<crate::features::canvas_resize_handle::CanvasDrag>,
 }
 
 impl State {
@@ -170,6 +176,8 @@ impl State {
             text_toolbar: true,
             pending_action: None,
             after_save: None,
+            attr_draft: Default::default(),
+            canvas_drag: None,
         })
     }
 
@@ -192,6 +200,7 @@ impl State {
         self.curve = Default::default();
         self.poly = Default::default();
         self.airbrush = Default::default();
+        self.canvas_drag = None;
     }
 
     /// The size File > New creates: the confirmed Attributes size, else the
