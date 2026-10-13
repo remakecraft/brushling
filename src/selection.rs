@@ -9,7 +9,7 @@ use crate::state::State;
 use crate::types::*;
 
 /// The active selection.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sel {
     /// Inclusive bounds in image coordinates (may extend past the canvas
     /// once a floating selection has been moved).
@@ -33,7 +33,14 @@ pub enum SelGesture {
     Move { last: (i32, i32), ctrl: bool, started: bool },
     /// Dragging a handle (selection.resize). `base` is the content as it was
     /// when the drag began, captured at the first move event.
-    Resize { handle: Handle, start: Rect, base: Option<crate::features::selection_image_ops_scope::Raster> },
+    /// `press` is where the button went down; a release at the same point
+    /// with no move in between is a plain click and resizes nothing.
+    Resize {
+        handle: Handle,
+        start: Rect,
+        press: Option<(i32, i32)>,
+        base: Option<crate::features::selection_image_ops_scope::Raster>,
+    },
 }
 
 /// An in-progress Select / Free-Form Select drag.
@@ -89,6 +96,40 @@ impl State {
     pub fn set_selection(&mut self, sel: Sel) {
         self.end_selection();
         self.sel = Some(sel);
+    }
+
+    /// Record one undo step that also remembers the selection (bounds, mask,
+    /// floating pixels), so Undo and Repeat restore it with the picture.
+    pub fn push_undo_sel(&mut self) {
+        self.doc.push_undo();
+        let sel = self.sel.clone();
+        if let Some(top) = self.doc.undo.last_mut() {
+            top.sel = Some(sel);
+        }
+    }
+
+    /// Step the history one way (`undo` = true pops the undo stack, else the
+    /// repeat stack). The step being left is pushed on the opposite stack
+    /// together with the current selection when the step recorded one.
+    pub fn step_history(&mut self, undo: bool) {
+        let popped = if undo { self.doc.undo.pop() } else { self.doc.redo.pop() };
+        let Some(mut snap) = popped else { return };
+        let wanted = snap.sel.take();
+        let saved = self.sel.clone();
+        let mut current = self.doc.restore(snap);
+        if wanted.is_some() {
+            current.sel = Some(saved);
+        }
+        if undo {
+            self.doc.redo.push(current);
+        } else {
+            self.doc.undo.push(current);
+        }
+        if let Some(sel) = wanted {
+            self.sel = sel;
+            self.sel_drag = None;
+            self.sel_gesture = None;
+        }
     }
 
     /// Lift the selected pixels off the image so they float. With
@@ -174,7 +215,7 @@ impl State {
         for y in b.y0..=b.y1 {
             for x in b.x0..=b.x1 {
                 if sel.mask[(y - b.y0) as usize * w + (x - b.x0) as usize] {
-                    self.doc.put(x, y, bg);
+                    self.doc.paint(x, y, bg);
                 }
             }
         }

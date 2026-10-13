@@ -43,7 +43,7 @@ fn spray(st: &mut State, button: Button) {
                 break (dx, dy);
             }
         };
-        st.doc.put(cx + dx, cy + dy, colour);
+        st.doc.paint(cx + dx, cy + dy, colour);
     }
 }
 

@@ -24,7 +24,7 @@ In `features/<tool>.rs`, implement `ToolHandler` (all methods default to
 no-ops; override `press`, `drag`, `release`, `hover`, `key`, `tick`,
 `activate`, `deactivate`) and call `r.tool(Tool::X, &HANDLER)` from `register`.
 An unregistered tool ignores input. Per-gesture data goes into new `State`
-fields. Draw with `st.doc.put(x, y, colour)` (clips), call `st.doc.push_undo()`
+fields. Paint with `st.doc.paint(x, y, colour)` (clips; snaps to black/white or the palette) - `put` is the raw write, call `st.doc.push_undo()`
 once per user-visible edit before changing pixels, use `st.fg` / `st.bg` and
 `st.options`. Placeholders for the colour-per-button rule belong in
 `features/mouse_colors.rs`.

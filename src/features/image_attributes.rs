@@ -60,6 +60,8 @@ impl Unit {
             return None;
         }
         let raw = match self {
+            // A size in pixels is a whole number.
+            Unit::Pixels if v.fract() != 0.0 => return None,
             Unit::Pixels => v,
             Unit::Inches => v * DPI as f64,
             Unit::Cm => v / CM_PER_INCH * DPI as f64,
@@ -113,11 +115,15 @@ fn sync(st: &mut State, od: &OpenDialog) -> bool {
         if !*edited {
             continue;
         }
+        // Only a valid entry settles the side; an invalid one stays pending
+        // so the next OK reports it again instead of applying the old size.
         match unit.to_px(&field_text(od, name)) {
-            Some(v) => *px = v,
+            Some(v) => {
+                *px = v;
+                *edited = false;
+            }
             None => ok = false,
         }
-        *edited = false;
     }
     ok
 }
@@ -153,8 +159,12 @@ fn attributes_handler(st: &mut State, od: &mut OpenDialog, action: DialogAction<
                     let Some(new) = Unit::parse(value) else {
                         return Err(HarnessError::Invalid(format!("unknown units {value:?}")));
                     };
-                    // Pending typed values are read in the old units first.
-                    sync(st, od);
+                    // Pending typed values are read in the old units first; an
+                    // invalid one is reported and the units stay as they are.
+                    if !sync(st, od) {
+                        st.error_box(INVALID_SIZE);
+                        return Ok(Outcome::Keep);
+                    }
                     store_field(od, field, value)?;
                     let d = st.attr_draft;
                     show_size(od, &d, new);
@@ -263,5 +273,41 @@ mod tests {
         assert_eq!(Unit::Pixels.to_px("0"), None);
         assert_eq!(Unit::Pixels.to_px("10000"), None);
         assert_eq!(Unit::Inches.to_px("0.001"), Some(1));
+        assert_eq!(Unit::Pixels.to_px("10.6"), None);
+        assert_eq!(Unit::Pixels.to_px("12"), Some(12));
+    }
+
+    fn state() -> State {
+        let dir = std::env::temp_dir().join(format!("brushling-attr-{}", std::process::id()));
+        let mut st = State::new(crate::settings::Settings::load(&dir), Services::default(), (1920, 1080)).unwrap();
+        st.new_default_document().unwrap();
+        st
+    }
+
+    #[test]
+    fn invalid_size_is_not_accepted_on_a_second_ok() {
+        let mut st = state();
+        let (w, h) = (st.doc.width, st.doc.height);
+        open_attributes(&mut st).unwrap();
+        st.dialog_set("Width", "10000").unwrap();
+        st.dialog_click("OK").unwrap();
+        // The error box is on top; dismiss it and press OK again.
+        st.dialog_click("OK").unwrap();
+        assert_eq!(st.top_dialog().map(|d| d.kind), Some(DialogKind::Attributes));
+        // The second OK must report the error again, not apply the old size.
+        st.dialog_click("OK").unwrap();
+        assert_eq!(st.top_dialog().map(|d| d.kind), Some(DialogKind::MessageBox));
+        assert_eq!((st.doc.width, st.doc.height), (w, h));
+    }
+
+    #[test]
+    fn invalid_entry_blocks_a_units_switch() {
+        let mut st = state();
+        open_attributes(&mut st).unwrap();
+        st.dialog_set("Width", "abc").unwrap();
+        st.dialog_set("Units", "Inches").unwrap();
+        st.dialog_click("OK").unwrap();
+        let d = st.top_dialog().unwrap();
+        assert_eq!(d.field("Units"), Some("Pixels"));
     }
 }

@@ -26,7 +26,7 @@ fn stamp(st: &mut State, p: (i32, i32), colour_erase: bool) {
             if colour_erase && st.doc.get(x, y) != Some(fg) {
                 continue;
             }
-            st.doc.put(x, y, bg);
+            st.doc.paint(x, y, bg);
         }
     }
 }

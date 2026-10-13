@@ -5,6 +5,7 @@
 //! edit.copy_to_paste_from, which writes / reads the same bounding-box image.
 
 use crate::doc::MAX_DIM;
+use super::tool_text;
 use crate::registry::Registry;
 use crate::selection::Sel;
 use crate::state::State;
@@ -13,12 +14,17 @@ use crate::types::*;
 const ENLARGE_TEXT: &str = "The pasted image is larger than the canvas. Enlarge the canvas?";
 
 pub fn register(r: &mut Registry) {
-    r.command_if("Edit > Cut", cut, Some(State::has_selection));
-    r.command_if("Edit > Copy", copy, Some(State::has_selection));
+    r.command_if("Edit > Cut", cut, Some(can_copy));
+    r.command_if("Edit > Copy", copy, Some(can_copy));
     r.command_if("Edit > Paste", paste, Some(can_paste));
     r.shortcut(Key::Char('x'), Mods::CTRL, "Edit > Cut");
     r.shortcut(Key::Char('c'), Mods::CTRL, "Edit > Copy");
     r.shortcut(Key::Char('v'), Mods::CTRL, "Edit > Paste");
+}
+
+/// Cut and Copy need a selection, or selected text in an active text frame.
+fn can_copy(st: &State) -> bool {
+    st.has_selection() || tool_text::selected_text(st).is_some()
 }
 
 /// Paste needs an image; clipboard text only matters to an active text frame
@@ -56,6 +62,13 @@ pub(crate) fn selection_image(st: &State) -> Option<Image> {
 }
 
 fn copy(st: &mut State) -> HResult<()> {
+    if tool_text::frame_active(st) {
+        // A text frame owns the clipboard commands: only its text is copied.
+        if let Some(t) = tool_text::selected_text(st) {
+            st.clipboard = ClipboardContent::Text(t);
+        }
+        return Ok(());
+    }
     if let Some(img) = selection_image(st) {
         st.clipboard = ClipboardContent::Image(img);
     }
@@ -63,19 +76,31 @@ fn copy(st: &mut State) -> HResult<()> {
 }
 
 fn cut(st: &mut State) -> HResult<()> {
+    if tool_text::frame_active(st) {
+        if let Some(t) = tool_text::selected_text(st) {
+            st.clipboard = ClipboardContent::Text(t);
+            tool_text::delete_selected(st);
+        }
+        return Ok(());
+    }
     let Some(img) = selection_image(st) else { return Ok(()) };
     st.clipboard = ClipboardContent::Image(img);
-    // A floating selection's source was vacated when it was lifted, so only
-    // an unlifted one edits pixels (and so needs an undo step).
-    if st.sel.as_ref().is_some_and(|s| !s.is_floating()) {
-        st.doc.push_undo();
-    }
+    // One undo step either way; it remembers the selection, so Undo brings
+    // back floating content too.
+    st.push_undo_sel();
     st.erase_selection();
     st.discard_selection();
     Ok(())
 }
 
 fn paste(st: &mut State) -> HResult<()> {
+    if tool_text::frame_active(st) {
+        // Only text can be pasted into a frame; an image is never pasted.
+        if let ClipboardContent::Text(t) = st.clipboard.clone() {
+            tool_text::insert_text(st, &t);
+        }
+        return Ok(());
+    }
     let ClipboardContent::Image(img) = st.clipboard.clone() else { return Ok(()) };
     paste_image(st, img)
 }
@@ -102,7 +127,7 @@ fn enlarge_answered(st: &mut State, button: &str) -> HResult<()> {
     let Some(img) = st.pending_paste.take() else { return Ok(()) };
     match button {
         "Yes" => {
-            st.doc.push_undo();
+            st.push_undo_sel();
             grow_canvas(st, img.width, img.height);
             insert_floating(st, img);
         }
@@ -129,7 +154,7 @@ fn grow_canvas(st: &mut State, w: u32, h: u32) {
 
 /// Undo step plus the floating insert.
 fn insert(st: &mut State, img: Image) {
-    st.doc.push_undo();
+    st.push_undo_sel();
     insert_floating(st, img);
 }
 

@@ -73,7 +73,7 @@ pub(crate) fn brush_offsets(shape: u32) -> Vec<(i32, i32)> {
 
 fn stamp(st: &mut State, offsets: &[(i32, i32)], p: (i32, i32), c: Rgb) {
     for &(dx, dy) in offsets {
-        st.doc.put(p.0 + dx, p.1 + dy, c);
+        st.doc.paint(p.0 + dx, p.1 + dy, c);
     }
 }
 

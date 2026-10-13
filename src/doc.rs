@@ -28,6 +28,16 @@ pub fn to_black_or_white(c: Rgb) -> Rgb {
     if lum >= 128_000 { Rgb::W } else { Rgb::K }
 }
 
+/// Snapping rule shared by [`Document::snap`] and bulk recolouring: the
+/// black-and-white threshold wins over the palette rule (colors.indexed_snap).
+pub fn snap_colour(mode: ColorMode, palette: Option<&[Rgb]>, c: Rgb) -> Rgb {
+    match (mode, palette) {
+        (ColorMode::BlackAndWhite, _) => to_black_or_white(c),
+        (_, Some(p)) => crate::features::colors_indexed_snap::nearest(p, c),
+        _ => c,
+    }
+}
+
 /// Everything an undo step has to restore.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Snapshot {
@@ -36,6 +46,10 @@ pub struct Snapshot {
     pub pixels: Vec<Rgb>,
     pub palette: Option<Vec<Rgb>>,
     pub color_mode: ColorMode,
+    /// The selection as it was when the step was recorded, for steps that
+    /// involve one (`State::push_undo_sel`). `None` = not recorded: Undo
+    /// leaves the selection alone; `Some(None)` = there was no selection.
+    pub sel: Option<Option<crate::selection::Sel>>,
 }
 
 #[derive(Debug, Clone)]
@@ -103,22 +117,30 @@ impl Document {
         self.index(x, y).map(|i| self.pixels[i])
     }
 
-    /// Place one pixel; points outside the canvas are discarded. Returns
-    /// whether the point was inside.
+    /// Place one pixel exactly as given; points outside the canvas are
+    /// discarded. Returns whether the point was inside. Painting goes through
+    /// [`Document::paint`] instead, which snaps the colour first.
     pub fn put(&mut self, x: i32, y: i32, c: Rgb) -> bool {
         match self.index(x, y) {
             Some(i) => {
-                // In black-and-white mode every painted colour snaps to K or W;
-                // an image with its own palette snaps to the nearest entry.
-                self.pixels[i] = match (self.color_mode, self.palette.as_deref()) {
-                    (ColorMode::BlackAndWhite, _) => to_black_or_white(c),
-                    (_, Some(p)) => crate::features::colors_indexed_snap::nearest(p, c),
-                    _ => c,
-                };
+                self.pixels[i] = c;
                 true
             }
             None => false,
         }
+    }
+
+    /// The colour a paint operation actually writes: in black-and-white mode
+    /// the threshold mapping, otherwise the nearest palette entry of an image
+    /// with its own palette, otherwise `c` itself.
+    pub fn snap(&self, c: Rgb) -> Rgb {
+        snap_colour(self.color_mode, self.palette.as_deref(), c)
+    }
+
+    /// Paint one pixel: [`Document::snap`] the colour, then place it.
+    pub fn paint(&mut self, x: i32, y: i32, c: Rgb) -> bool {
+        let c = self.snap(c);
+        self.put(x, y, c)
     }
 
     pub fn image(&self) -> Image {
@@ -144,6 +166,7 @@ impl Document {
             pixels: self.pixels.clone(),
             palette: self.palette.clone(),
             color_mode: self.color_mode,
+            sel: None,
         }
     }
 
@@ -184,6 +207,21 @@ mod tests {
         assert!(!d.put(-1, 0, Rgb::K));
         assert_eq!(d.get(3, 2), Some(Rgb::K));
         assert_eq!(d.pixels.iter().filter(|p| **p == Rgb::K).count(), 1);
+    }
+
+    #[test]
+    fn put_is_raw_and_paint_snaps() {
+        let mut d = Document::new(2, 1, Rgb::W).unwrap();
+        d.color_mode = ColorMode::BlackAndWhite;
+        let red = Rgb::new(200, 0, 0);
+        assert!(d.put(0, 0, red));
+        assert_eq!(d.get(0, 0), Some(red));
+        assert!(d.paint(1, 0, red));
+        assert_eq!(d.get(1, 0), Some(Rgb::K));
+        d.color_mode = ColorMode::Colors;
+        d.palette = Some(vec![Rgb::K, Rgb::W]);
+        assert_eq!(d.snap(Rgb::new(200, 200, 200)), Rgb::W);
+        assert!(!d.paint(5, 5, Rgb::K));
     }
 
     #[test]

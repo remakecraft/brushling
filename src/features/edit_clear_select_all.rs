@@ -22,7 +22,7 @@ fn clear_selection(st: &mut State) -> HResult<()> {
     // Clearing is one undo step whether it erases pixels or, for a floating
     // selection (source area already vacated at the lift), only discards the
     // floating content.
-    st.doc.push_undo();
+    st.push_undo_sel();
     st.erase_selection();
     Ok(())
 }

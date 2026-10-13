@@ -109,7 +109,7 @@ pub fn with_target_pixels(st: &mut State, f: impl FnOnce(Raster, Rgb) -> HResult
     if out.pixels.len() != n || out.mask.len() != n {
         return Err(HarnessError::Invalid("transformed raster does not match its size".into()));
     }
-    st.doc.push_undo();
+    st.push_undo_sel();
     if st.sel.is_none() {
         st.doc.width = out.width;
         st.doc.height = out.height;
@@ -129,7 +129,10 @@ pub fn with_target_pixels(st: &mut State, f: impl FnOnce(Raster, Rgb) -> HResult
 /// Recolour every pixel of the target (whole image, or the masked pixels of
 /// the selection in place) with `f`.
 pub fn map_target_pixels(st: &mut State, mut f: impl FnMut(Rgb) -> Rgb) {
-    st.doc.push_undo();
+    st.push_undo_sel();
+    // Recoloured pixels are painted: they snap like any other painted colour.
+    let (mode, palette) = (st.doc.color_mode, st.doc.palette.clone());
+    let mut f = |c: Rgb| crate::doc::snap_colour(mode, palette.as_deref(), f(c));
     let Some(sel) = st.sel.as_mut() else {
         st.doc.pixels.iter_mut().for_each(|p| *p = f(*p));
         return;

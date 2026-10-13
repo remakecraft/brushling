@@ -17,24 +17,12 @@ pub fn register(r: &mut Registry) {
     r.tool(Tool::Fill, &FILL);
 }
 
-/// Nearest palette entry for an indexed image; other images keep the colour.
-fn snap(palette: Option<&[Rgb]>, c: Rgb) -> Rgb {
-    let dist = |p: &Rgb| {
-        let d = |a: u8, b: u8| (i32::from(a) - i32::from(b)).pow(2);
-        d(p.r, c.r) + d(p.g, c.g) + d(p.b, c.b)
-    };
-    palette
-        .and_then(|p| p.iter().min_by_key(|p| dist(p)))
-        .copied()
-        .unwrap_or(c)
-}
-
 impl ToolHandler for Fill {
     fn press(&self, st: &mut State, ev: &PointerEvent) -> HResult<()> {
         let Some((x, y)) = ev.image else { return Ok(()) };
         let Some(target) = st.doc.get(x, y) else { return Ok(()) };
         let chosen = paint_colour(st, ev.button);
-        let paint = snap(st.doc.palette.as_deref(), chosen);
+        let paint = st.doc.snap(chosen);
         if paint == target {
             return Ok(());
         }
@@ -49,5 +37,30 @@ impl ToolHandler for Fill {
             stack.extend([(cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)]);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::Settings;
+
+    #[test]
+    fn black_and_white_fill_with_unsnapped_paint_terminates() {
+        let dir = std::env::temp_dir().join(format!("brushling-fillbw-{}", std::process::id()));
+        let mut st = State::new(Settings::load(&dir), Services::default(), (1920, 1080)).unwrap();
+        st.replace_document(crate::doc::Document::new(8, 8, Rgb::K).unwrap());
+        st.doc.color_mode = ColorMode::BlackAndWhite;
+        st.fg = Rgb::new(30, 30, 30);
+        let ev = PointerEvent {
+            pos: Pos::Image(2, 2),
+            image: Some((2, 2)),
+            button: Some(Button::Left),
+            mods: Mods::NONE,
+            double_click: false,
+        };
+        FILL.press(&mut st, &ev).unwrap();
+        assert!(st.doc.undo.is_empty(), "snapped paint equals target: no-op");
+        assert!(st.doc.pixels.iter().all(|p| *p == Rgb::K));
     }
 }

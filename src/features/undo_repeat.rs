@@ -15,7 +15,7 @@ pub fn register(r: &mut Registry) {
 }
 
 fn can_undo(st: &State) -> bool {
-    !st.doc.undo.is_empty()
+    crate::features::tool_text::frame_active(st) || !st.doc.undo.is_empty()
 }
 
 fn can_repeat(st: &State) -> bool {
@@ -29,30 +29,20 @@ fn discard_unfinished(st: &mut State) {
     st.poly = Default::default();
 }
 
-/// Floating content is not part of a snapshot; once the picture steps back
-/// across the lift that created it, the floating selection is gone.
-fn drop_floating(st: &mut State) {
-    if st.sel.as_ref().is_some_and(|s| s.is_floating()) {
-        st.discard_selection();
-    }
-}
-
+/// Undo steps the history, restoring the selection with the picture for
+/// steps that recorded one (a floating selection is part of such a step).
+/// While a text frame is active it undoes the last text edit instead.
 fn undo(st: &mut State) -> HResult<()> {
-    discard_unfinished(st);
-    if let Some(snap) = st.doc.undo.pop() {
-        let current = st.doc.restore(snap);
-        st.doc.redo.push(current);
-        drop_floating(st);
+    if crate::features::tool_text::undo_text_edit(st) {
+        return Ok(());
     }
+    discard_unfinished(st);
+    st.step_history(true);
     Ok(())
 }
 
 fn repeat(st: &mut State) -> HResult<()> {
     discard_unfinished(st);
-    if let Some(snap) = st.doc.redo.pop() {
-        let current = st.doc.restore(snap);
-        st.doc.undo.push(current);
-        drop_floating(st);
-    }
+    st.step_history(false);
     Ok(())
 }

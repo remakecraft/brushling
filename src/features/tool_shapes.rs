@@ -93,7 +93,7 @@ impl ToolHandler for ShapeTool {
         let list = paint_list(st, self.0, h.button, start, cur, ev.mods.shift);
         st.doc.push_undo();
         for ((x, y), c) in list {
-            st.doc.put(x, y, c);
+            st.doc.paint(x, y, c);
         }
         Ok(())
     }
