@@ -103,6 +103,13 @@ pub struct State {
     pub curve: crate::features::tool_curve::CurveState,
     pub poly: crate::features::tool_polygon::PolyState,
     pub airbrush: crate::features::tool_airbrush::AirbrushState,
+    // ----- tool.text
+    pub text: Option<crate::features::tool_text::TextSession>,
+    pub text_drag: Option<crate::features::tool_text::TextDrag>,
+    /// Text toolbar choices (font, size, B/I/U); they restyle the active frame.
+    pub text_style: crate::features::tool_text::TextStyle,
+    /// View > Text Toolbar check state (shown by default).
+    pub text_toolbar: bool,
 }
 
 impl State {
@@ -144,6 +151,10 @@ impl State {
             curve: Default::default(),
             poly: Default::default(),
             airbrush: Default::default(),
+            text: None,
+            text_drag: None,
+            text_style: Default::default(),
+            text_toolbar: true,
         })
     }
 
@@ -153,6 +164,8 @@ impl State {
     pub fn replace_document(&mut self, doc: Document) {
         self.doc = doc;
         self.reset_selection();
+        self.text = None;
+        self.text_drag = None;
         self.held = None;
         self.last_press = None;
         self.pointer_image = None;
