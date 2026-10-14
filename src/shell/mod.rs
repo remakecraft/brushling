@@ -4,9 +4,12 @@
 //! The same shell runs natively and in the browser; `web` holds what only
 //! the browser needs (uploads and downloads for the in-memory file store).
 
+mod icons;
 mod input;
+mod options;
 mod panels;
 mod scrollbar;
+mod theme;
 #[cfg(target_arch = "wasm32")]
 mod web;
 mod windows;
@@ -15,10 +18,11 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use brushling::{App, Button, HResult, HelpAction, Hover, Image, Key, Mods, Panel, PointerKind, Pos, StartOptions, Surface, Tool, ToolOption, ViewMode};
-use eframe::egui::{self, Color32, Event, Pos2, Rect, Vec2};
+use eframe::egui::{self, Color32, Event, Margin, Pos2, Rect, Vec2};
 
 use input::{Bars, Geometry};
 use panels::PanelOutput;
+use theme::Bevel;
 
 /// A click in the shell, applied to the app after the frame's UI is drawn.
 #[derive(Debug, Clone, PartialEq)]
@@ -92,6 +96,8 @@ pub struct Shell {
     scroll_grab: (Option<f32>, Option<f32>),
     /// Sub-pixel wheel scrolling not yet sent to the app.
     wheel_carry: (f32, f32),
+    /// Whether the classic theme is installed yet (it needs the context).
+    themed: bool,
     #[cfg(target_arch = "wasm32")]
     uploads: web::Uploads,
 }
@@ -118,6 +124,7 @@ impl Shell {
             help_edits: Default::default(),
             scroll_grab: (None, None),
             wheel_carry: (0.0, 0.0),
+            themed: false,
             #[cfg(target_arch = "wasm32")]
             uploads: web::Uploads::default(),
         }
@@ -249,7 +256,10 @@ impl Shell {
         let (tool_box, color_box) = (!preview && shown(Panel::ToolBox), !preview && shown(Panel::ColorBox));
         let mut out = PanelOutput::default();
 
-        egui::Panel::top("brushling-menu").show(ui, |ui| {
+        // Grey bars without egui's separator lines; their 3D edges are drawn
+        // by the panels themselves.
+        let bar = |m: Margin| egui::Frame::NONE.fill(theme::FACE).inner_margin(m);
+        egui::Panel::top("brushling-menu").frame(bar(Margin::symmetric(2, 1))).show_separator_line(false).show(ui, |ui| {
             if preview {
                 panels::preview_toolbar(ui, app, mode, &mut out);
             } else {
@@ -258,13 +268,26 @@ impl Shell {
         });
         if shown(Panel::StatusBar) || self.error.is_some() {
             let error = self.error.clone();
-            egui::Panel::bottom("brushling-status").show(ui, |ui| panels::status_bar(ui, app, error.as_deref()));
+            egui::Panel::bottom("brushling-status")
+                .frame(bar(Margin::symmetric(2, 2)))
+                .show_separator_line(false)
+                .show(ui, |ui| panels::status_bar(ui, app, error.as_deref()));
         }
         if color_box {
-            egui::Panel::bottom("brushling-colors").resizable(false).show(ui, |ui| panels::color_box(ui, app, &mut out));
+            egui::Panel::bottom("brushling-colors")
+                .resizable(false)
+                .frame(bar(Margin::symmetric(4, 3)))
+                .show_separator_line(false)
+                .show(ui, |ui| panels::color_box(ui, app, &mut out));
         }
         if tool_box {
-            egui::Panel::left("brushling-tools").resizable(false).show(ui, |ui| panels::tool_box(ui, app, &mut out));
+            let width = panels::tool_box_width(ui.ctx().pixels_per_point());
+            egui::Panel::left("brushling-tools")
+                .resizable(false)
+                .exact_size(width)
+                .frame(bar(Margin::same(panels::TOOL_BOX_MARGIN)))
+                .show_separator_line(false)
+                .show(ui, |ui| panels::tool_box(ui, app, &mut out));
         }
         if let Some(e) = out.error.take() {
             self.error = Some(e);
@@ -273,18 +296,22 @@ impl Shell {
         self.set_hover(app, hover);
         self.apply(app, out.actions);
 
-        let grey = Color32::from_gray(128);
-        egui::CentralPanel::no_frame().frame(egui::Frame::NONE.fill(grey)).show(ui, |ui| {
-            self.workspace_ui(app, ui, !preview, popup_open);
+        egui::CentralPanel::no_frame().frame(egui::Frame::NONE.fill(theme::FACE)).show(ui, |ui| {
+            // The workspace sits in a sunken well; the app draws the grey
+            // around the image itself.
+            let (u, ppp) = theme::metrics(ui);
+            let well = theme::snap(ui.available_rect_before_wrap(), ppp);
+            theme::bevel(ui.painter(), well, Bevel::Sunken, u);
+            let avail = well.shrink(Bevel::Sunken.width() * u);
+            self.workspace_ui(app, ui, avail, !preview, popup_open);
         });
     }
 
-    /// The workspace image 1:1 in physical pixels, its scroll bars, and the
-    /// pointer and wheel input on it.
-    fn workspace_ui(&mut self, app: &mut App, ui: &mut egui::Ui, interactive: bool, popup_open: bool) {
+    /// The workspace image 1:1 in physical pixels inside `avail`, its scroll
+    /// bars, and the pointer and wheel input on it.
+    fn workspace_ui(&mut self, app: &mut App, ui: &mut egui::Ui, avail: Rect, interactive: bool, popup_open: bool) {
         let ctx = ui.ctx().clone();
         let ppp = ctx.pixels_per_point();
-        let avail = ui.available_rect_before_wrap();
         // Snap the origin to a whole physical pixel so pixels stay crisp.
         let origin = Pos2::new((avail.min.x * ppp).ceil() / ppp, (avail.min.y * ppp).ceil() / ppp);
         let central = (
@@ -340,7 +367,7 @@ impl Shell {
         }
         if shown.0 && shown.1 {
             let corner = Rect::from_min_max(area.max, Pos2::new(right, bottom));
-            ui.painter().rect_filled(corner, 0.0, ui.visuals().panel_fill);
+            theme::solid(ui.painter(), corner, theme::FACE);
         }
         if want != offset {
             let r = app.set_scroll(want.0, want.1);
@@ -510,12 +537,11 @@ impl Shell {
         }
         let Some(img) = self.note(app.render(Surface::Thumbnail)) else { return };
         let size = Vec2::new(img.width as f32, img.height as f32) / ctx.pixels_per_point();
-        let mut open = true;
         let tex = self.thumbnail.show(ctx, "brushling-thumbnail", img);
-        egui::Window::new("Thumbnail").id(egui::Id::new("brushling-thumbnail")).open(&mut open).resizable(false).show(ctx, |ui| {
+        let close = windows::chrome_window(ctx, egui::Id::new("brushling-thumbnail"), "Thumbnail", false, None, |ui| {
             ui.add(egui::Image::new((tex, size)));
         });
-        if !open {
+        if close {
             out.push(Action::ClosePanel(Panel::Thumbnail));
         }
     }
@@ -562,7 +588,7 @@ impl Shell {
                 ui.add_space(80.0);
                 ui.heading("Brushling has exited.");
                 ui.add_space(8.0);
-                restart = ui.button("Start again").clicked();
+                restart = theme::button(ui, "Start again", true, theme::DIALOG_BUTTON).clicked();
             });
         });
         if restart {
@@ -580,6 +606,10 @@ impl Shell {
 impl eframe::App for Shell {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        if !self.themed {
+            theme::apply(&ctx);
+            self.themed = true;
+        }
         ctx.request_repaint_after(Duration::from_millis(16));
         if self.app.is_none() && self.start_error.is_none() {
             self.start(&ctx);
