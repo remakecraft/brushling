@@ -21,14 +21,35 @@ Measured on 2026-10-13 against the conformance suite Remakecraft wrote before an
 | Path | What |
 |---|---|
 | `src/` | The app as a library: `harness.rs` is the public `App` API, behaviour lives under `features/`. See [`src/README.md`](src/README.md) |
+| `src/main.rs`, `src/shell/` | The desktop window (eframe), a thin shell over `App` |
 | `spec/` | The behaviour spec the builders worked from |
 | `tests/visible/` | The visible conformance tests. The sealed tests and the evidence about the original are not published |
 | `remake.json` | The run's settings, including the blocklist |
 
-The app is a library with a test harness; there is no window entry point yet. Build it with:
+## Run it
+
+```bash
+cargo run --release
+```
+
+`src/main.rs` and `src/shell/` are a thin eframe window over the library's `App`: the app renders the workspace, and the shell draws the menu bar, tool box and options, colour box, status bar, dialogs, Help Topics, thumbnail, Print Preview toolbar and View Bitmap from the app's state, and forwards mouse, keyboard and elapsed time. A file path argument opens that file. Settings go to `%APPDATA%\brushling`.
+
+Not covered by the shell yet:
+
+| Gap | Why |
+|---|---|
+| Scrolling and scroll bars | The harness has no scroll API; resize and selection handle hit tests assume an unscrolled canvas |
+| Text toolbar (font, size, bold/italic/underline) | No harness call exposes or sets it; typing into a text frame works |
+| Floating tool box and colour box | Always drawn docked |
+| Alt-key menu navigation | The app's keyboard menu state is not visible to the egui menu bar; menus work with the mouse |
+| Ctrl+V when the system clipboard holds no text | egui swallows the key; Edit > Paste works |
+| Tool icons | Tool buttons are text labels |
+
+Build and test everything with:
 
 ```bash
 cargo build --all-targets
+cargo test
 ```
 
 ## Not affiliated
