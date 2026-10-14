@@ -78,6 +78,14 @@ pub fn clamp_scroll(st: &mut State) {
     st.scroll = (st.scroll.0.clamp(0, mx), st.scroll.1.clamp(0, my));
 }
 
+/// Scroll the workspace to `(x, y)` screen pixels, clamped to
+/// `0..=max_scroll`, as dragging the scroll bars does. Never touches the
+/// document, the zoom or the undo history.
+pub fn set_scroll(st: &mut State, x: i32, y: i32) {
+    st.scroll = (x, y);
+    clamp_scroll(st);
+}
+
 /// Workspace pixel -> image pixel (floor; may lie outside the image).
 pub(crate) fn screen_to_image(st: &State, sx: i32, sy: i32) -> (i32, i32) {
     let z = st.scale() as i32;
@@ -164,6 +172,40 @@ mod tests {
         set_zoom(&mut st, 800).unwrap();
         assert!(st.workspace_size.0 < small.0 && st.workspace_size.1 < small.1);
         assert_eq!(st.workspace_size, (crate::features::ui_main_window::layout(&st).workspace.2, crate::features::ui_main_window::layout(&st).workspace.3));
+    }
+
+    #[test]
+    fn set_scroll_clamps_to_the_canvas() {
+        let mut st = state();
+        st.doc = crate::doc::Document::new(1000, 1000, Rgb::W).unwrap();
+        crate::features::ui_main_window::refresh_workspace(&mut st);
+        let (mx, my) = max_scroll(&st);
+        assert!(mx > 0 && my > 0);
+        // Content is the canvas plus a margin on both sides.
+        assert_eq!(mx as u32 + st.workspace_size.0, 1000 + 2 * CANVAS_MARGIN as u32);
+        set_scroll(&mut st, 30, 40);
+        assert_eq!(st.scroll, (30, 40));
+        set_scroll(&mut st, -5, i32::MAX);
+        assert_eq!(st.scroll, (0, my));
+        // A canvas that fits does not scroll.
+        st.doc = crate::doc::Document::new(10, 10, Rgb::W).unwrap();
+        crate::features::ui_main_window::refresh_workspace(&mut st);
+        assert_eq!(max_scroll(&st), (0, 0));
+        set_scroll(&mut st, 7, 7);
+        assert_eq!(st.scroll, (0, 0));
+    }
+
+    #[test]
+    fn scrolled_canvas_positions_address_the_visible_pixel() {
+        let mut st = state();
+        st.doc = crate::doc::Document::new(1000, 1000, Rgb::W).unwrap();
+        crate::features::ui_main_window::refresh_workspace(&mut st);
+        set_zoom(&mut st, 200).unwrap();
+        set_scroll(&mut st, 100, 50);
+        // Workspace pixel (4,4) is now image pixel (50,25), both ways round.
+        assert_eq!(screen_to_image(&st, CANVAS_MARGIN, CANVAS_MARGIN), (50, 25));
+        assert_eq!(st.image_point(Pos::Canvas(0, 0)), Some((50, 25)));
+        assert_eq!(image_to_screen(&st, 50, 25), (CANVAS_MARGIN as i64, CANVAS_MARGIN as i64));
     }
 
     #[test]

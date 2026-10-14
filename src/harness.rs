@@ -255,6 +255,28 @@ impl App {
         Ok(self.st.zoom)
     }
 
+    /// Workspace scroll offset (x, y) in screen pixels: the canvas is drawn
+    /// with its top-left at `(4 - x, 4 - y)` in the workspace. `Pos::Canvas`
+    /// offsets stay relative to the unscrolled origin `(4, 4)`, so a canvas
+    /// position means the image pixel shown there now.
+    pub fn scroll(&self) -> HResult<(i32, i32)> {
+        Ok(self.st.scroll)
+    }
+
+    /// Largest scroll offset per axis for the current image, zoom and
+    /// workspace; 0 on an axis without a scroll bar. The scrollable content
+    /// is the workspace size plus this range.
+    pub fn scroll_range(&self) -> HResult<(i32, i32)> {
+        Ok(crate::features::view_zoom::max_scroll(&self.st))
+    }
+
+    /// Scroll the workspace as the scroll bars and mouse wheel do; the
+    /// offset is clamped to `0..=scroll_range()`. No undo step, not dirty.
+    pub fn set_scroll(&mut self, x: i32, y: i32) -> HResult<()> {
+        crate::features::view_zoom::set_scroll(&mut self.st, x, y);
+        Ok(())
+    }
+
     pub fn view_mode(&self) -> HResult<ViewMode> {
         if let Some(mode) = crate::features::file_print::preview_mode(&self.st) {
             return Ok(mode);

@@ -32,13 +32,12 @@ Measured on 2026-10-13 against the conformance suite Remakecraft wrote before an
 cargo run --release
 ```
 
-`src/main.rs` and `src/shell/` are a thin eframe window over the library's `App`: the app renders the workspace, and the shell draws the menu bar, tool box and options, colour box, status bar, dialogs, Help Topics, thumbnail, Print Preview toolbar and View Bitmap from the app's state, and forwards mouse, keyboard and elapsed time. A file path argument opens that file. Settings go to `%APPDATA%\brushling`.
+`src/main.rs` and `src/shell/` are a thin eframe window over the library's `App`: the app renders the workspace, and the shell draws the menu bar, tool box and options, colour box, status bar, dialogs, Help Topics, thumbnail, Print Preview toolbar, View Bitmap and the workspace scroll bars from the app's state, and forwards mouse, wheel, keyboard and elapsed time. A file path argument opens that file. Settings go to `%APPDATA%\brushling`.
 
 Not covered by the shell yet:
 
 | Gap | Why |
 |---|---|
-| Scrolling and scroll bars | The harness has no scroll API; resize and selection handle hit tests assume an unscrolled canvas |
 | Text toolbar (font, size, bold/italic/underline) | No harness call exposes or sets it; typing into a text frame works |
 | Floating tool box and colour box | Always drawn docked |
 | Alt-key menu navigation | The app's keyboard menu state is not visible to the egui menu bar; menus work with the mouse |

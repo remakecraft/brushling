@@ -92,18 +92,20 @@ pub fn to_pixel(dx: f32, dy: f32, ppp: f32) -> (i32, i32) {
     ((dx * ppp).floor() as i32, (dy * ppp).floor() as i32)
 }
 
-/// What the hit tests need to know about the canvas. The harness exposes no
-/// scroll offset, so handle positions assume an unscrolled canvas.
+/// What the hit tests need to know about the canvas.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Geometry {
     /// Screen pixels per image pixel.
     pub scale: i64,
+    /// The app's scroll offset: the canvas sits at `CANVAS_MARGIN - scroll`.
+    pub scroll: (i32, i32),
     pub doc: (u32, u32),
     pub selection: Option<Rect>,
     pub text_frame: Option<Rect>,
 }
 
-/// A workspace pixel as an ordinary canvas position.
+/// A workspace pixel as an ordinary canvas position. `Pos::Canvas` is
+/// relative to the unscrolled origin; the app adds its scroll offset.
 pub fn canvas_pos(px: (i32, i32)) -> Pos {
     Pos::Canvas(px.0 - CANVAS_MARGIN as i32, px.1 - CANVAS_MARGIN as i32)
 }
@@ -112,7 +114,7 @@ pub fn canvas_pos(px: (i32, i32)) -> Pos {
 /// or selection handle, a canvas resize handle, or the canvas itself.
 pub fn press_pos(px: (i32, i32), g: &Geometry) -> Pos {
     for r in [g.text_frame, g.selection].into_iter().flatten() {
-        if let Some(h) = selection_handle_at(px, r, g.scale) {
+        if let Some(h) = selection_handle_at(px, r, g) {
             return Pos::SelectionHandle(h);
         }
     }
@@ -122,6 +124,11 @@ pub fn press_pos(px: (i32, i32), g: &Geometry) -> Pos {
     canvas_pos(px)
 }
 
+/// Workspace position of the canvas's top-left screen pixel.
+fn origin(g: &Geometry) -> (i64, i64) {
+    (CANVAS_MARGIN - g.scroll.0 as i64, CANVAS_MARGIN - g.scroll.1 as i64)
+}
+
 fn near(px: (i32, i32), c: (i64, i64), radius: i64) -> bool {
     (px.0 as i64 - c.0).abs() <= radius && (px.1 as i64 - c.1).abs() <= radius
 }
@@ -129,11 +136,11 @@ fn near(px: (i32, i32), c: (i64, i64), radius: i64) -> bool {
 /// The 3x3 resize handles 2 px outside the right and bottom canvas edges.
 fn canvas_handle_at(px: (i32, i32), g: &Geometry) -> Option<CanvasHandle> {
     let (w, h) = (g.doc.0 as i64 * g.scale, g.doc.1 as i64 * g.scale);
-    let o = CANVAS_MARGIN;
+    let (ox, oy) = origin(g);
     [
-        (CanvasHandle::Corner, (o + w + 2, o + h + 2)),
-        (CanvasHandle::Right, (o + w + 2, o + h / 2)),
-        (CanvasHandle::Bottom, (o + w / 2, o + h + 2)),
+        (CanvasHandle::Corner, (ox + w + 2, oy + h + 2)),
+        (CanvasHandle::Right, (ox + w + 2, oy + h / 2)),
+        (CanvasHandle::Bottom, (ox + w / 2, oy + h + 2)),
     ]
     .into_iter()
     .find(|(_, c)| near(px, *c, 2))
@@ -141,12 +148,12 @@ fn canvas_handle_at(px: (i32, i32), g: &Geometry) -> Option<CanvasHandle> {
 }
 
 /// The 5x5 handles on the dashed box drawn one pixel outside `r`.
-fn selection_handle_at(px: (i32, i32), r: Rect, scale: i64) -> Option<Handle> {
-    let o = CANVAS_MARGIN;
-    let x0 = o + r.x0 as i64 * scale - 1;
-    let y0 = o + r.y0 as i64 * scale - 1;
-    let x1 = o + (r.x1 as i64 + 1) * scale;
-    let y1 = o + (r.y1 as i64 + 1) * scale;
+fn selection_handle_at(px: (i32, i32), r: Rect, g: &Geometry) -> Option<Handle> {
+    let ((ox, oy), scale) = (origin(g), g.scale);
+    let x0 = ox + r.x0 as i64 * scale - 1;
+    let y0 = oy + r.y0 as i64 * scale - 1;
+    let x1 = ox + (r.x1 as i64 + 1) * scale;
+    let y1 = oy + (r.y1 as i64 + 1) * scale;
     let (mx, my) = ((x0 + x1) / 2, (y0 + y1) / 2);
     [
         (Handle::TopLeft, (x0, y0)),
@@ -240,7 +247,7 @@ mod tests {
     }
 
     fn geom(scale: i64) -> Geometry {
-        Geometry { scale, doc: (100, 50), selection: None, text_frame: None }
+        Geometry { scale, scroll: (0, 0), doc: (100, 50), selection: None, text_frame: None }
     }
 
     #[test]
@@ -272,6 +279,40 @@ mod tests {
         assert_eq!(press_pos((18, 18), &g), Pos::Canvas(14, 14));
         g.text_frame = Some(Rect::new(40, 10, 49, 19));
         assert_eq!(press_pos((43, 18), &g), Pos::SelectionHandle(Handle::Left));
+    }
+
+    #[test]
+    fn handles_follow_the_scroll_offset() {
+        let mut g = geom(4);
+        g.scroll = (300, 150);
+        // Corner of the 400x200 canvas at (4-300+400+2, 4-150+200+2).
+        assert_eq!(press_pos((106, 56), &g), Pos::CanvasHandle(CanvasHandle::Corner));
+        assert_eq!(press_pos((406, 206), &g), Pos::Canvas(402, 202));
+        g.selection = Some(Rect::new(80, 40, 89, 49));
+        // Box from (4-300+320-1, 4-150+160-1) = (23,13) to (4-300+360, 4-150+200) = (64,54).
+        assert_eq!(press_pos((23, 13), &g), Pos::SelectionHandle(Handle::TopLeft));
+        assert_eq!(press_pos((64, 54), &g), Pos::SelectionHandle(Handle::BottomRight));
+    }
+
+    #[test]
+    fn hit_tests_agree_with_the_scrolled_app() {
+        let dir = std::env::temp_dir().join(format!("brushling-shell-scroll-{}", std::process::id()));
+        let mut app = brushling::App::start(brushling::StartOptions::new(&dir)).unwrap();
+        app.new_document(2000, 1500, brushling::Rgb::W).unwrap();
+        app.set_scroll(5000, 5000).unwrap();
+        let s = app.scroll().unwrap();
+        assert_eq!(s, app.scroll_range().unwrap());
+        let g = Geometry { scale: 1, scroll: s, doc: (2000, 1500), selection: None, text_frame: None };
+        // Scrolled to the end, the corner handle is on screen and the press grabs it.
+        let corner = (4 - s.0 + 2000 + 2, 4 - s.1 + 1500 + 2);
+        let at = press_pos(corner, &g);
+        assert_eq!(at, Pos::CanvasHandle(CanvasHandle::Corner));
+        app.pointer(brushling::PointerKind::Press(Button::Left), at, Mods::NONE).unwrap();
+        app.pointer(brushling::PointerKind::Release(Button::Left), Pos::Image(2010, 1510), Mods::NONE).unwrap();
+        assert_eq!(app.document().unwrap().width, 2010);
+        // A plain press addresses the pixel shown under it.
+        assert_eq!(press_pos((4, 4), &g), Pos::Canvas(0, 0));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

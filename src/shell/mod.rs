@@ -4,6 +4,7 @@
 
 mod input;
 mod panels;
+mod scrollbar;
 mod windows;
 
 use std::path::PathBuf;
@@ -79,6 +80,10 @@ pub struct Shell {
     fullscreen: bool,
     dialog_edits: windows::DialogEdits,
     help_edits: windows::HelpEdits,
+    /// Where on the (horizontal, vertical) thumb a scroll bar drag started.
+    scroll_grab: (Option<f32>, Option<f32>),
+    /// Sub-pixel wheel scrolling not yet sent to the app.
+    wheel_carry: (f32, f32),
 }
 
 impl Shell {
@@ -101,6 +106,8 @@ impl Shell {
             fullscreen: false,
             dialog_edits: Default::default(),
             help_edits: Default::default(),
+            scroll_grab: (None, None),
+            wheel_carry: (0.0, 0.0),
         }
     }
 
@@ -255,7 +262,8 @@ impl Shell {
         });
     }
 
-    /// The workspace image 1:1 in physical pixels, and the pointer input on it.
+    /// The workspace image 1:1 in physical pixels, its scroll bars, and the
+    /// pointer and wheel input on it.
     fn workspace_ui(&mut self, app: &mut App, ui: &mut egui::Ui, interactive: bool, popup_open: bool) {
         let ctx = ui.ctx().clone();
         let ppp = ctx.pixels_per_point();
@@ -267,15 +275,77 @@ impl Shell {
             ((avail.max.y - origin.y) * ppp).floor().max(1.0) as u32,
         );
         self.request_size(app, central);
+        // The app's workspace is the central area minus its scroll bars.
+        let Some(layout) = self.note(app.layout()) else { return };
+        let (ww, wh) = (layout.workspace.2, layout.workspace.3);
+        let area = Rect::from_min_size(origin, Vec2::new(ww as f32, wh as f32) / ppp);
 
         if interactive {
-            self.workspace_input(app, &ctx, ui.layer_id(), origin, avail, popup_open);
+            let before = app.scroll().ok();
+            self.scroll_bars_ui(app, ui, area, central, (layout.hscroll, layout.vscroll));
+            self.wheel(app, &ctx, ui.layer_id(), Rect::from_min_size(origin, Vec2::new(central.0 as f32, central.1 as f32) / ppp), popup_open);
+            let moved = app.scroll().ok() != before;
+            self.workspace_input(app, &ctx, ui.layer_id(), origin, area, popup_open, moved);
         }
         let Some(img) = self.note(app.render(Surface::Workspace)) else { return };
         let size = Vec2::new(img.width as f32, img.height as f32) / ppp;
         let tex = self.workspace.show(&ctx, "brushling-workspace", img);
         let uv = Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
         ui.painter().image(tex, Rect::from_min_size(origin, size), uv, Color32::WHITE);
+    }
+
+    /// The bars the app's layout asks for, in the strips between its
+    /// workspace and the central area, and the gap where they meet.
+    fn scroll_bars_ui(&mut self, app: &mut App, ui: &mut egui::Ui, area: Rect, central: (u32, u32), shown: (bool, bool)) {
+        let (Some(offset), Some(range)) = (self.note(app.scroll()), self.note(app.scroll_range())) else { return };
+        let ppp = ui.ctx().pixels_per_point();
+        let right = area.min.x + central.0 as f32 / ppp;
+        let bottom = area.min.y + central.1 as f32 / ppp;
+        let (view_w, view_h) = ((area.width() * ppp).round() as i32, (area.height() * ppp).round() as i32);
+        let mut want = offset;
+        if shown.0 {
+            let rect = Rect::from_min_max(Pos2::new(area.min.x, area.max.y), Pos2::new(area.max.x, bottom));
+            let axis = scrollbar::Axis { view: view_w, range: range.0, offset: offset.0 };
+            if let Some(x) = scrollbar::bar(ui, egui::Id::new("brushling-hscroll"), rect, true, axis, &mut self.scroll_grab.0) {
+                want.0 = x;
+            }
+        } else {
+            self.scroll_grab.0 = None;
+        }
+        if shown.1 {
+            let rect = Rect::from_min_max(Pos2::new(area.max.x, area.min.y), Pos2::new(right, area.max.y));
+            let axis = scrollbar::Axis { view: view_h, range: range.1, offset: offset.1 };
+            if let Some(y) = scrollbar::bar(ui, egui::Id::new("brushling-vscroll"), rect, false, axis, &mut self.scroll_grab.1) {
+                want.1 = y;
+            }
+        } else {
+            self.scroll_grab.1 = None;
+        }
+        if shown.0 && shown.1 {
+            let corner = Rect::from_min_max(area.max, Pos2::new(right, bottom));
+            ui.painter().rect_filled(corner, 0.0, ui.visuals().panel_fill);
+        }
+        if want != offset {
+            let r = app.set_scroll(want.0, want.1);
+            self.note(r);
+        }
+    }
+
+    /// Mouse wheel over the workspace or its bars scrolls (Shift+wheel
+    /// sideways, via egui). Ctrl+wheel is egui's zoom gesture and is ignored.
+    fn wheel(&mut self, app: &mut App, ctx: &egui::Context, layer: egui::LayerId, area: Rect, popup_open: bool) {
+        let (delta, hover) = ctx.input(|i| (i.smooth_scroll_delta, i.pointer.hover_pos()));
+        let over = hover.is_some_and(|p| area.contains(p) && ctx.layer_id_at(p).is_none_or(|l| l == layer));
+        if delta == Vec2::ZERO || !over || popup_open {
+            return;
+        }
+        let (dx, dy) = scrollbar::wheel_step(&mut self.wheel_carry, delta, ctx.pixels_per_point());
+        if (dx, dy) == (0, 0) {
+            return;
+        }
+        let Some((x, y)) = self.note(app.scroll()) else { return };
+        let r = app.set_scroll(x.saturating_add(dx), y.saturating_add(dy));
+        self.note(r);
     }
 
     fn request_size(&mut self, app: &mut App, central: (u32, u32)) {
@@ -299,15 +369,20 @@ impl Shell {
         let doc = app.document().map_or((0, 0), |d| (d.width, d.height));
         Geometry {
             scale,
+            scroll: app.scroll().unwrap_or((0, 0)),
             doc,
             selection: app.selection().ok().flatten().map(|s| s.bounds),
             text_frame: app.text_frame().ok().flatten().map(|t| t.rect),
         }
     }
 
-    fn workspace_input(&mut self, app: &mut App, ctx: &egui::Context, layer: egui::LayerId, origin: Pos2, area: Rect, popup_open: bool) {
+    /// Pointer events over the workspace image. `scrolled` says the view
+    /// moved this frame: the pointer then rests on a different image pixel,
+    /// so the app gets a move even when the mouse stood still.
+    #[allow(clippy::too_many_arguments)]
+    fn workspace_input(&mut self, app: &mut App, ctx: &egui::Context, layer: egui::LayerId, origin: Pos2, area: Rect, popup_open: bool, scrolled: bool) {
         let ppp = ctx.pixels_per_point();
-        let (events, mods) = ctx.input(|i| (i.events.clone(), input::mods(i.modifiers)));
+        let (events, mods, hover) = ctx.input(|i| (i.events.clone(), input::mods(i.modifiers), i.pointer.hover_pos()));
         let px = |p: Pos2| input::to_pixel(p.x - origin.x, p.y - origin.y, ppp);
         // Over the workspace and not under a menu, window or modal.
         let free = |p: Pos2| area.contains(p) && ctx.layer_id_at(p).is_none_or(|l| l == layer);
@@ -345,6 +420,10 @@ impl Shell {
                 }
                 _ => {}
             }
+        }
+        if let Some(p) = hover.filter(|&p| scrolled && (self.held.is_some() || free(p))) {
+            self.pointer_outside = false;
+            self.send_pointer(app, PointerKind::Move, input::canvas_pos(px(p)), mods);
         }
     }
 
