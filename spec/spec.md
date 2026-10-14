@@ -18,7 +18,7 @@ One raster image is open at a time; this feature fixes the pixel model, coordina
 5. Pixel results are exact (tolerance 0) unless a line states otherwise. Drawing never anti-aliases. Pixels a tool would place outside the canvas are discarded; drawing never grows the canvas.
 6. The application logic is drivable without a window. A test harness can: create a document of a given size and fill colour; send pointer press/move/release in image coordinates with a button (left or right) and modifiers (Shift, Ctrl); send key events; invoke any menu command by its menu path; advance a virtual clock; read any pixel, the foreground and background colours, active tool, tool options, zoom, selection bounds and mask, menu enabled/checked states, status bar text and the bytes of files written. Platform services (clipboard, file dialogs, printer, mail, wallpaper) are behind interfaces the harness can replace with recorders.
 7. Acceptance shorthand used throughout: 'fresh state' = a new 32x32 image filled with (255,255,255), foreground (0,0,0), background (255,255,255), every tool option at its default, opaque selection mode, zoom 100%, empty undo history. 'click P' = press and release at P without moving. 'drag A->B' = press at A, a single move event to B, release at B. Colours: K=(0,0,0), W=(255,255,255), R=(255,0,0), G=(0,255,0), B=(0,0,255).
-8. ASSUMPTION: the first new image (startup, or File > New when no size has ever been confirmed in Attributes) is 512 x 384 pixels. This is a guess; no source states the Win98 value (only a later version is documented with this size).
+8. ASSUMPTION: the first new image (startup, or File > New when no size has ever been confirmed in Attributes) is 512 x 384 pixels. This is a guess; no source states the 1998-era value (only a later version is documented with this size).
 9. Confirming Image > Attributes stores its width and height as the size used by later File > New commands; the stored size persists across sessions.
 10. At startup the app shows a new image named untitled, filled with (255,255,255). If a file path is given as the first command-line argument, that file is opened instead.
 
@@ -100,7 +100,7 @@ Six menus with fixed item order, separators and underlined access letters reacha
 4. View: Tool Box, Color Box, Status Bar, Text Toolbar (these four are check items), separator, Zoom (submenu), View Bitmap.
 5. ASSUMPTION: the Zoom submenu order is Normal Size, Large Size, Custom..., separator, Show Grid, Show Thumbnail. Guess; no capture of the open submenu exists.
 6. Image: Flip/Rotate..., Stretch/Skew..., Invert Colors, Attributes..., Clear Image, Draw Opaque (check item).
-7. ASSUMPTION: the Colors menu holds only Edit Colors...; there are no palette save/load commands. Follows the Win98-era screenshot over older-version sources that list palette file commands.
+7. ASSUMPTION: the Colors menu holds only Edit Colors...; there are no palette save/load commands. Follows the 1998-era reference over older-version sources that list palette file commands.
 8. Help: Help Topics, separator, About Brushling.
 9. Menu items show their keyboard shortcut right-aligned using the text forms Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+P, Alt+F4, Ctrl+Z, F4, Ctrl+X, Ctrl+C, Ctrl+V, Del, Ctrl+A, Ctrl+T, Ctrl+L, Ctrl+F, Ctrl+R, Ctrl+W, Ctrl+I, Ctrl+E, Ctrl+Shift+N, plus the zoom keys of feature ui.keyboard_shortcuts.
 10. Each menu title and item has one underlined access letter. Alt+letter opens a menu; with a menu open, the letter runs the item.
@@ -391,7 +391,7 @@ Priority: should | Layer: behaviour | Inventory: menu.file.recent
 The File menu lists recently opened or saved files, most recent first, numbered from 1.
 
 **Behaviour**
-1. ASSUMPTION: the list holds at most 4 entries. Follows the source stating four; a screenshot shows three, which may simply be all that existed.
+1. ASSUMPTION: the list holds at most 4 entries. Follows the source stating four; one reference shows three, which may simply be all that existed.
 2. Entries read '<n> <full path>' with n = 1..4, most recent first. A file opened or saved moves to position 1; a path already in the list is not duplicated (case-insensitive comparison).
 3. Choosing an entry runs the save-changes check and opens that file. If it cannot be opened, the cannot-open message is shown and the entry is removed.
 4. The list persists across sessions.
@@ -485,7 +485,7 @@ Priority: could | Layer: behaviour | Inventory: menu.file.wallpaper_tiled, menu.
 Makes the saved image file the desktop wallpaper, either repeated or once in the middle.
 
 **Behaviour**
-1. ASSUMPTION: the menu labels are 'Set As Wallpaper (Tiled)' and 'Set As Wallpaper (Centered)'. Follows the Win98-era screenshot over a later version's labels.
+1. ASSUMPTION: the menu labels are 'Set As Wallpaper (Tiled)' and 'Set As Wallpaper (Centered)'. Follows the 1998-era reference over a later version's labels.
 2. Both items are enabled only when the document has a file path. They pass that path and the style (tiled or centered) to the platform wallpaper service.
 3. ASSUMPTION: unsaved changes are not saved first; the file as it is on disk is used. Guess.
 
@@ -567,7 +567,7 @@ Exchanges the selection with the system clipboard as a bitmap and pastes clipboa
 3. Paste commits any current selection, switches the tool to Select, and inserts the clipboard image as a floating selection.
 4. ASSUMPTION: the pasted selection's top-left is the top-left image pixel currently visible in the workspace ((0,0) when not scrolled). Guess; not stated.
 5. Clipboard images from other programs are accepted; any alpha channel is ignored (colour channels used as-is).
-6. ASSUMPTION: if the clipboard image is wider or taller than the canvas, a question box titled 'Brushling' asks 'The pasted image is larger than the canvas. Enlarge the canvas?' (own wording) with Yes, No, Cancel. Follows the Win98-era capture showing such a prompt rather than a source saying it arrived later.
+6. ASSUMPTION: if the clipboard image is wider or taller than the canvas, a question box titled 'Brushling' asks 'The pasted image is larger than the canvas. Enlarge the canvas?' (own wording) with Yes, No, Cancel. Follows the 1998-era reference showing such a prompt rather than a source saying it arrived later.
 7. ASSUMPTION: Yes grows the canvas to max(W, clip width) x max(H, clip height) with new area in the background colour, then pastes; No pastes without growing (parts beyond the canvas are dropped at commit); Cancel pastes nothing. The No and Cancel meanings are a guess.
 8. While a text frame is active, Paste inserts clipboard text into the frame and never pastes an image.
 
@@ -1477,7 +1477,7 @@ A strip with the current-colours indicator and 28 swatches; clicks set foregroun
 
 **Behaviour**
 1. Left part: an indicator of two overlapping squares, the upper-left showing the foreground and the lower-right the background colour. Right of it: 28 swatches in 2 rows of 14, each on a 16-screen-pixel pitch.
-2. ASSUMPTION: default swatches, top row left to right: (0,0,0), (128,128,128), (128,0,0), (128,128,0), (0,128,0), (0,128,128), (0,0,128), (128,0,128), (128,128,64), (0,64,64), (0,128,255), (0,64,128), (64,0,255), (128,64,0); bottom row: (255,255,255), (192,192,192), (255,0,0), (255,255,0), (0,255,0), (0,255,255), (0,0,255), (255,0,255), (255,255,128), (0,255,128), (128,255,255), (128,128,255), (255,0,128), (255,128,64). Sampled from a lossless period screenshot; treated as exact but unconfirmed. Swatches are numbered 1-14 top row, 15-28 bottom row.
+2. ASSUMPTION: default swatches, top row left to right: (0,0,0), (128,128,128), (128,0,0), (128,128,0), (0,128,0), (0,128,128), (0,0,128), (128,0,128), (128,128,64), (0,64,64), (0,128,255), (0,64,128), (64,0,255), (128,64,0); bottom row: (255,255,255), (192,192,192), (255,0,0), (255,255,0), (0,255,0), (0,255,255), (0,0,255), (255,0,255), (255,255,128), (0,255,128), (128,255,255), (128,128,255), (255,0,128), (255,128,64). Sampled from a lossless period reference; treated as exact but unconfirmed. Swatches are numbered 1-14 top row, 15-28 bottom row.
 3. At start the foreground is (0,0,0) and the background (255,255,255).
 4. Left-click on a swatch sets the foreground to its colour; right-click sets the background. Neither changes pixels or creates an undo step, except that an active text frame recolours (tool.text).
 5. Double-click on a swatch opens Edit Colors for that swatch (colors.edit_colors).
