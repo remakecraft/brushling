@@ -37,6 +37,7 @@ mod rng;
 mod selection;
 mod settings;
 mod state;
+mod sysfs;
 mod tools;
 
 pub use harness::App;

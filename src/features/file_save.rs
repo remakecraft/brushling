@@ -150,25 +150,11 @@ pub(crate) fn save_to(st: &mut State, path: &Path, depth: u32) -> HResult<bool> 
     Ok(true)
 }
 
-/// Write to a sibling temporary file and rename it over the target, so a
-/// failure leaves the old file intact and no stray file behind.
+/// Write a finished file: on the desktop through a sibling temporary file
+/// renamed over the target, so a failure leaves the old file intact; in the
+/// browser into the in-memory store, queued for download (see `sysfs`).
 pub(crate) fn write_atomically(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    if let Ok(meta) = std::fs::metadata(path) {
-        if meta.is_dir() {
-            return Err("the target is a folder".into());
-        }
-        if meta.permissions().readonly() {
-            return Err("the file is read-only".into());
-        }
-    }
-    let name = path.file_name().ok_or("the file name is empty")?.to_string_lossy().into_owned();
-    let tmp = path.with_file_name(format!(".{name}.{}.tmp", std::process::id()));
-    let result = std::fs::write(&tmp, bytes).and_then(|_| std::fs::rename(&tmp, path));
-    if let Err(e) = result {
-        let _ = std::fs::remove_file(&tmp);
-        return Err(e.to_string());
-    }
-    Ok(())
+    crate::sysfs::save(path, bytes)
 }
 
 /// Final path for a typed name: '.bmp' appended unless already there

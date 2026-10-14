@@ -1,14 +1,18 @@
 //! The eframe shell: a thin window over [`brushling::App`]. The app owns all
 //! behaviour and renders the workspace itself; the shell draws the bars and
 //! dialogs from the app's state, forwards input, and moves virtual time.
+//! The same shell runs natively and in the browser; `web` holds what only
+//! the browser needs (uploads and downloads for the in-memory file store).
 
 mod input;
 mod panels;
 mod scrollbar;
+#[cfg(target_arch = "wasm32")]
+mod web;
 mod windows;
 
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use brushling::{App, Button, HResult, HelpAction, Hover, Image, Key, Mods, Panel, PointerKind, Pos, StartOptions, Surface, Tool, ToolOption, ViewMode};
 use eframe::egui::{self, Color32, Event, Pos2, Rect, Vec2};
@@ -28,6 +32,9 @@ pub enum Action {
     Help(HelpAction),
     ClosePanel(Panel),
     Preview(String),
+    /// Web build: pick a file to upload into the open File Open dialog.
+    #[cfg(target_arch = "wasm32")]
+    Upload,
 }
 
 /// How to start the app once the screen size is known.
@@ -66,7 +73,8 @@ pub struct Shell {
     frames: u32,
     /// Last harness error, shown in the status line until the next one.
     error: Option<String>,
-    last_tick: Instant,
+    /// egui's clock (seconds) at the last tick; `None` until the app starts.
+    last_tick: Option<f64>,
     carry_ms: f64,
     workspace: Texture,
     thumbnail: Texture,
@@ -84,6 +92,8 @@ pub struct Shell {
     scroll_grab: (Option<f32>, Option<f32>),
     /// Sub-pixel wheel scrolling not yet sent to the app.
     wheel_carry: (f32, f32),
+    #[cfg(target_arch = "wasm32")]
+    uploads: web::Uploads,
 }
 
 impl Shell {
@@ -94,7 +104,7 @@ impl Shell {
             start_error: None,
             frames: 0,
             error: None,
-            last_tick: Instant::now(),
+            last_tick: None,
             carry_ms: 0.0,
             workspace: Texture::default(),
             thumbnail: Texture::default(),
@@ -108,6 +118,8 @@ impl Shell {
             help_edits: Default::default(),
             scroll_grab: (None, None),
             wheel_carry: (0.0, 0.0),
+            #[cfg(target_arch = "wasm32")]
+            uploads: web::Uploads::default(),
         }
     }
 
@@ -145,14 +157,15 @@ impl Shell {
             }
             Err(e) => self.start_error = Some(e.to_string()),
         }
-        self.last_tick = Instant::now();
+        self.last_tick = None;
     }
 
-    /// Advance virtual time by the real time since the last frame.
-    fn tick(&mut self, app: &mut App) {
-        let now = Instant::now();
-        self.carry_ms += now.duration_since(self.last_tick).as_secs_f64() * 1000.0;
-        self.last_tick = now;
+    /// Advance virtual time by the real time since the last frame (egui's
+    /// clock, which also runs in the browser where `Instant` does not).
+    fn tick(&mut self, app: &mut App, ctx: &egui::Context) {
+        let now = ctx.input(|i| i.time);
+        let last = self.last_tick.replace(now).unwrap_or(now);
+        self.carry_ms += (now - last).max(0.0) * 1000.0;
         let whole = self.carry_ms.floor();
         if whole >= 1.0 {
             self.carry_ms -= whole;
@@ -181,6 +194,8 @@ impl Shell {
         if let Some(t) = self.note(app.title()) {
             if t != self.title {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Title(t.clone()));
+                #[cfg(target_arch = "wasm32")]
+                web::set_title(&t);
                 self.title = t;
             }
         }
@@ -198,6 +213,8 @@ impl Shell {
                 Action::Help(h) => app.help_action(h),
                 Action::ClosePanel(p) => app.close_panel(p),
                 Action::Preview(b) => app.preview_click(&b),
+                #[cfg(target_arch = "wasm32")]
+                Action::Upload => self.uploads.pick().map_err(brushling::HarnessError::Invalid),
             };
             if r.is_ok() {
                 self.error = None;
@@ -504,6 +521,62 @@ impl Shell {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+impl Shell {
+    /// Browser-only work at the start of a frame: finished uploads go into
+    /// the app's file store and through the open File Open dialog, finished
+    /// saves become downloads, and File > Exit leaves a restart screen
+    /// (a page cannot close itself). `None` while the app runs; after exit,
+    /// `Some(restart)` with whether the user asked to start again.
+    fn web_frame(&mut self, app: &mut App, ui: &mut egui::Ui) -> Option<bool> {
+        for upload in self.uploads.take() {
+            let r = upload.map_err(brushling::HarnessError::Invalid).and_then(|(name, bytes)| {
+                let path = format!("{}/{}", web::UPLOAD_DIR, web::file_name(&name));
+                app.put_file(&path, bytes)?;
+                match app.dialog()? {
+                    Some(d) if d.kind == brushling::DialogKind::FileOpen => {
+                        app.dialog_set("File name", &path)?;
+                        app.dialog_click("Open")
+                    }
+                    // The dialog was closed meanwhile: the file stays in the store.
+                    _ => Ok(()),
+                }
+            });
+            self.note(r);
+        }
+        if let Some(saved) = self.note(app.take_saved_files()) {
+            for (path, bytes) in saved {
+                if let Err(e) = web::download(web::file_name(&path), &bytes) {
+                    self.error = Some(format!("Download of {path} failed: {e}"));
+                }
+            }
+        }
+        let exited = matches!(app.exit_status(), Ok(Some(_)));
+        web::set_unsaved(!exited && app.document().is_ok_and(|d| d.dirty));
+        if !exited {
+            return None;
+        }
+        let mut restart = false;
+        egui::CentralPanel::default().show(ui, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(80.0);
+                ui.heading("Brushling has exited.");
+                ui.add_space(8.0);
+                restart = ui.button("Start again").clicked();
+            });
+        });
+        if restart {
+            // The caller drops the exited app; the next frame starts a fresh
+            // one (files in the store remain).
+            self.frames = 0;
+            self.requested_size = None;
+            self.held = None;
+            self.error = None;
+        }
+        Some(restart)
+    }
+}
+
 impl eframe::App for Shell {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
@@ -517,7 +590,14 @@ impl eframe::App for Shell {
             return;
         };
         let popup_open = egui::Popup::is_any_open(&ctx);
-        self.tick(&mut app);
+        self.tick(&mut app, &ctx);
+        #[cfg(target_arch = "wasm32")]
+        if let Some(restart) = self.web_frame(&mut app, ui) {
+            if !restart {
+                self.app = Some(app);
+            }
+            return;
+        }
         self.sync_viewport(&mut app, &ctx);
 
         let mode = app.view_mode().unwrap_or(ViewMode::Normal);

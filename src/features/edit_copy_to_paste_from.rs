@@ -138,7 +138,7 @@ fn paste_from_handler(st: &mut State, od: &mut OpenDialog, action: DialogAction<
 /// the same boxes as File > Open and leave everything as it was.
 fn paste_from_file(st: &mut State, path: &Path) -> HResult<()> {
     let shown = path.display().to_string();
-    let bytes = match std::fs::read(path) {
+    let bytes = match crate::sysfs::read(path) {
         Ok(b) => b,
         Err(_) => {
             st.error_box(&format!("{shown}\n{CANNOT_OPEN}"));

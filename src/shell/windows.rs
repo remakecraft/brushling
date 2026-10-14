@@ -65,6 +65,14 @@ pub fn dialog(ctx: &egui::Context, d: &Dialog, edits: &mut DialogEdits, out: &mu
                 });
             });
         }
+        // Web build: the file store starts empty, so Open dialogs can upload.
+        #[cfg(target_arch = "wasm32")]
+        if d.kind == DialogKind::FileOpen {
+            ui.add_space(6.0);
+            if ui.button("Upload from this device...").clicked() {
+                out.push(Action::Upload);
+            }
+        }
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             for b in &d.buttons {

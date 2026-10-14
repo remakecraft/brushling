@@ -16,6 +16,7 @@ where needed, adding fields to `State`.
 | `dialogs.rs` | modal dialog stack, `OpenDialog`, message boxes |
 | `formats.rs` | `State::open_path`, decoder list (`Registry::decoder`) |
 | `settings.rs` | `key=value` settings file in `<config_dir>/brushling/settings.ini` |
+| `sysfs.rs` | Every file read and write: `std::fs` on the desktop, an in-memory store in the browser (wasm32) whose saves the web shell downloads |
 | `render.rs` | `Composite` and `Workspace` surfaces, with layer hooks |
 | `rng.rs` | seeded generator behind `App::seed` |
 

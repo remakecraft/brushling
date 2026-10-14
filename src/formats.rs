@@ -52,7 +52,7 @@ impl State {
     /// Like [`State::open_path`], but reports whether the file was opened.
     pub(crate) fn open_path_checked(&mut self, path: &Path) -> HResult<bool> {
         let shown = path.display().to_string();
-        let bytes = match std::fs::read(path) {
+        let bytes = match crate::sysfs::read(path) {
             Ok(b) => b,
             Err(_) => {
                 self.error_box(&format!("{shown}\n{CANNOT_OPEN}"));

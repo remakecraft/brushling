@@ -9,5 +9,35 @@ license = "MIT"
 name = "brushling"
 path = "src/lib.rs"
 
-[dependencies]
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 eframe = "0.36"
+
+# The browser build (wasm32-unknown-unknown): canvas start-up, uploads and
+# downloads. Versions match what eframe already pulls in.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# WebGL through glow: a smaller download than wgpu.
+eframe = { version = "0.36", default-features = false, features = ["default_fonts", "glow"] }
+wasm-bindgen = "0.2.129"
+wasm-bindgen-futures = "0.4.79"
+js-sys = "0.3.106"
+web-sys = { version = "0.3.106", features = [
+    "Blob",
+    "BlobPropertyBag",
+    "Document",
+    "Element",
+    "File",
+    "FileList",
+    "HtmlAnchorElement",
+    "HtmlCanvasElement",
+    "HtmlElement",
+    "HtmlInputElement",
+    "Url",
+    "Window",
+] }
+
+# Size-tuned release for the browser build: `cargo build --profile web`.
+[profile.web]
+inherits = "release"
+opt-level = "s"
+lto = true
+codegen-units = 1

@@ -23,7 +23,7 @@ impl Settings {
     /// Load the settings stored under `config_dir`; never fails.
     pub fn load(config_dir: &Path) -> Settings {
         let file = config_dir.join(DIR_NAME).join(FILE_NAME);
-        let values = std::fs::read(&file)
+        let values = crate::sysfs::read(&file)
             .ok()
             .and_then(|b| String::from_utf8(b).ok())
             .map(|t| parse(&t))
@@ -47,7 +47,7 @@ impl Settings {
 
     pub fn save(&self) -> HResult<()> {
         if let Some(dir) = self.file.parent() {
-            std::fs::create_dir_all(dir)?;
+            crate::sysfs::create_dir_all(dir)?;
         }
         let mut text = String::new();
         for (k, v) in &self.values {
@@ -56,7 +56,7 @@ impl Settings {
             text.push_str(v);
             text.push('\n');
         }
-        std::fs::write(&self.file, text)?;
+        crate::sysfs::write(&self.file, text.as_bytes())?;
         Ok(())
     }
 

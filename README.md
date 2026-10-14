@@ -21,7 +21,8 @@ Measured on 2026-10-13 against the conformance suite Remakecraft wrote before an
 | Path | What |
 |---|---|
 | `src/` | The app as a library: `harness.rs` is the public `App` API, behaviour lives under `features/`. See [`src/README.md`](src/README.md) |
-| `src/main.rs`, `src/shell/` | The desktop window (eframe), a thin shell over `App` |
+| `src/main.rs`, `src/shell/` | The window (eframe), a thin shell over `App`, for the desktop and the browser |
+| `web/` | The browser page and `build.sh`, which builds it into `web/dist/` |
 | `spec/` | The behaviour spec the builders worked from |
 | `tests/visible/` | The visible conformance tests. The sealed tests and the evidence about the original are not published |
 | `remake.json` | The run's settings, including the blocklist |
@@ -43,6 +44,43 @@ Not covered by the shell yet:
 | Alt-key menu navigation | The app's keyboard menu state is not visible to the egui menu bar; menus work with the mouse |
 | Ctrl+V when the system clipboard holds no text | egui swallows the key; Edit > Paste works |
 | Tool icons | Tool buttons are text labels |
+
+### In the browser
+
+The same shell builds for the web (eframe on WebGL, `wasm32-unknown-unknown`). One-time setup, then the build:
+
+```bash
+rustup target add wasm32-unknown-unknown
+```
+
+```bash
+cargo install wasm-bindgen-cli --version 0.2.129 --locked
+```
+
+```bash
+bash web/build.sh
+```
+
+`web/dist/` then holds `index.html`, `brushling.js` and `brushling_bg.wasm` (about 5 MB, 2 MB gzipped), a static folder that works from any path. Serve it with anything that sends `.wasm` as `application/wasm`:
+
+```bash
+python -m http.server -d web/dist 8000
+```
+
+The browser has no file system, so the app's files live in memory for the life of the page. Differences from the desktop:
+
+| Area | In the browser |
+|---|---|
+| File > Open, Edit > Paste From | The Open dialog gets an **Upload from this device...** button; the picked file opens (or pastes) at `/uploads/<name>`. Typed paths reach only files uploaded or saved in this page |
+| File > Save, Save As, Edit > Copy To | Each save also downloads the file; the browser picks the folder. The file on the user's disk is never overwritten |
+| Settings, recent files | Kept in memory; gone when the page closes |
+| Ctrl+N, Ctrl+Shift+N, Ctrl+T, Ctrl+W, Ctrl+PageUp/PageDown, Alt+F4 | The browser keeps them (new window, new tab, close tab, switch tab). Use the menus for New, Clear Image, Tool Box, Stretch/Skew and the zoom sizes. The other Ctrl shortcuts reach the app |
+| Closing the tab with unsaved changes | The browser's own leave-page prompt, not the app's Save Changes dialog |
+| File > Exit | Shows a "Start again" screen; a page cannot close itself |
+| View Bitmap | Fills the page, not the screen; the app assumes a 1920x1080 screen because the browser does not report one |
+| Touch screens | One finger is the left button; there is no right button, so background-colour drawing needs a mouse |
+
+Print, Send and Set As Wallpaper behave as on the desktop.
 
 Build and test everything with:
 

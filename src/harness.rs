@@ -375,4 +375,26 @@ impl App {
     pub fn click_swatch(&mut self, n: u32, button: Button, double: bool) -> HResult<()> {
         crate::features::color_box::click_swatch(&mut self.st, n, button, double)
     }
+
+    // ----- browser file store (wasm32 only; the desktop uses the real file system)
+
+    /// Make `bytes` readable at `path` for File > Open and Edit > Paste
+    /// From..., as a file the user uploaded. The store is shared by every
+    /// `App` on the page and lasts until the page closes.
+    #[cfg(target_arch = "wasm32")]
+    pub fn put_file(&mut self, path: &str, bytes: Vec<u8>) -> HResult<()> {
+        if path.trim().is_empty() {
+            return Err(HarnessError::Invalid("an uploaded file needs a name".to_owned()));
+        }
+        crate::sysfs::put(std::path::Path::new(path), bytes);
+        Ok(())
+    }
+
+    /// Documents written by File > Save / Save As and Edit > Copy To since
+    /// the last call, oldest first: (path, file bytes), for the page to
+    /// offer as downloads. Settings writes are not included.
+    #[cfg(target_arch = "wasm32")]
+    pub fn take_saved_files(&mut self) -> HResult<Vec<(String, Vec<u8>)>> {
+        Ok(crate::sysfs::take_saved().into_iter().map(|(p, b)| (p.to_string_lossy().into_owned(), b)).collect())
+    }
 }
