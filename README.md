@@ -35,6 +35,8 @@ cargo run --release
 
 `src/main.rs` and `src/shell/` are a thin eframe window over the library's `App`: the app renders the workspace, and the shell draws the menu bar, tool box and options, colour box, status bar, dialogs, Help Topics, thumbnail, Print Preview toolbar, View Bitmap and the workspace scroll bars from the app's state, and forwards mouse, wheel, keyboard and elapsed time. A file path argument opens that file. Settings go to `%APPDATA%\brushling`.
 
+The shell has a classic late-90s desktop look of its own (`src/shell/theme.rs`): grey bevelled 3D controls, navy title bars and highlights, a sunken workspace well, and original 16x16 pixel-art tool icons drawn in code (`src/shell/icons.rs`). It is light-only and not affiliated with Microsoft.
+
 Not covered by the shell yet:
 
 | Gap | Why |
@@ -43,7 +45,6 @@ Not covered by the shell yet:
 | Floating tool box and colour box | Always drawn docked |
 | Alt-key menu navigation | The app's keyboard menu state is not visible to the egui menu bar; menus work with the mouse |
 | Ctrl+V when the system clipboard holds no text | egui swallows the key; Edit > Paste works |
-| Tool icons | Tool buttons are text labels |
 
 ### In the browser
 
